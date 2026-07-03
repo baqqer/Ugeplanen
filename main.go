@@ -481,6 +481,43 @@ func getLocalIP() string {
 	return "localhost"
 }
 
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func (lrw *loggingResponseWriter) Write(b []byte) (int, error) {
+	return lrw.ResponseWriter.Write(b)
+}
+
+// loggingMiddleware logs incoming HTTP requests to stdout
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lrw := &loggingResponseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // default status
+		}
+
+		next.ServeHTTP(lrw, r)
+
+		log.Printf("[%s] %s %s %s - %d %s (%v)",
+			start.Format("2006-01-02 15:04:05"),
+			r.RemoteAddr,
+			r.Method,
+			r.RequestURI,
+			lrw.statusCode,
+			http.StatusText(lrw.statusCode),
+			time.Since(start),
+		)
+	})
+}
+
 func main() {
 	if err := loadPlan(); err != nil {
 		log.Fatalf("Error loading plan database: %v", err)
@@ -884,7 +921,7 @@ func main() {
 	}
 	log.Printf("Serving on 0.0.0.0:%s to support local network devices.", port)
 
-	if err := http.ListenAndServe("0.0.0.0:"+port, nil); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:"+port, loggingMiddleware(http.DefaultServeMux)); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

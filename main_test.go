@@ -3,6 +3,10 @@ package main
 import (
 	"bytes"
 	"html/template"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -265,4 +269,42 @@ func TestWeekTransition(t *testing.T) {
 		t.Error("Expected WeekPlan to NOT reset when AutoResetWeek is false")
 	}
 	stateMu.RUnlock()
+}
+
+func TestLoggingMiddleware(t *testing.T) {
+	// Create a dummy handler
+	dummy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		w.Write([]byte("Short, stout"))
+	})
+
+	// Wrap with our logging middleware
+	loggedHandler := loggingMiddleware(dummy)
+
+	// Create test request
+	req := httptest.NewRequest("GET", "/test-log-endpoint", nil)
+	rec := httptest.NewRecorder()
+
+	// Capture log output
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr) // restore original
+
+	// Serve request
+	loggedHandler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTeapot {
+		t.Errorf("Expected status %d, got %d", http.StatusTeapot, rec.Code)
+	}
+
+	logStr := buf.String()
+	if !strings.Contains(logStr, "GET") {
+		t.Error("Expected log to contain HTTP method GET")
+	}
+	if !strings.Contains(logStr, "/test-log-endpoint") {
+		t.Error("Expected log to contain RequestURI /test-log-endpoint")
+	}
+	if !strings.Contains(logStr, "418 I'm a teapot") {
+		t.Error("Expected log to contain status code and text '418 I'm a teapot'")
+	}
 }

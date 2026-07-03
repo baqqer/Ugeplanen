@@ -273,7 +273,40 @@ func loadPlan() error {
 		return err
 	}
 
-	return json.Unmarshal(file, &currentState)
+	err = json.Unmarshal(file, &currentState)
+	if err != nil {
+		return err
+	}
+
+	// Sanitize and repair missing Day Names in loaded state (e.g. if modified by APIs or tests)
+	sanitizeDayNames := func(dp *Day, daName, enName string) {
+		if dp.DayNameDa == "" {
+			dp.DayNameDa = daName
+		}
+		if dp.DayNameEn == "" {
+			dp.DayNameEn = enName
+		}
+	}
+
+	// 1. Repair WeekPlan Day Names
+	sanitizeDayNames(&currentState.WeekPlan.Monday, "Mandag", "Monday")
+	sanitizeDayNames(&currentState.WeekPlan.Tuesday, "Tirsdag", "Tuesday")
+	sanitizeDayNames(&currentState.WeekPlan.Wednesday, "Onsdag", "Wednesday")
+	sanitizeDayNames(&currentState.WeekPlan.Thursday, "Torsdag", "Thursday")
+	sanitizeDayNames(&currentState.WeekPlan.Friday, "Fredag", "Friday")
+	sanitizeDayNames(&currentState.WeekPlan.Saturday, "Lørdag", "Saturday")
+	sanitizeDayNames(&currentState.WeekPlan.Sunday, "Søndag", "Sunday")
+
+	// 2. Repair TemplatePlan Day Names
+	sanitizeDayNames(&currentState.TemplatePlan.Monday, "Mandag", "Monday")
+	sanitizeDayNames(&currentState.TemplatePlan.Tuesday, "Tirsdag", "Tuesday")
+	sanitizeDayNames(&currentState.TemplatePlan.Wednesday, "Onsdag", "Wednesday")
+	sanitizeDayNames(&currentState.TemplatePlan.Thursday, "Torsdag", "Thursday")
+	sanitizeDayNames(&currentState.TemplatePlan.Friday, "Fredag", "Friday")
+	sanitizeDayNames(&currentState.TemplatePlan.Saturday, "Lørdag", "Saturday")
+	sanitizeDayNames(&currentState.TemplatePlan.Sunday, "Søndag", "Sunday")
+
+	return nil
 }
 
 // savePlanAtomic writes current state atomically to plan.json
@@ -742,9 +775,6 @@ func main() {
 
 		// Clean time input
 		timeStr := req.Time
-		if timeStr == "" {
-			timeStr = "12:00"
-		}
 
 		stateMu.Lock()
 		

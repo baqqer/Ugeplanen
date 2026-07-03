@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ index .Trans "title" }}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=5">
+  <link rel="stylesheet" href="/static/css/style.css?v=6">
 </head>
 <body class="{{ if .State.Settings.TouchFriendlyMode }}touch-friendly{{ end }} {{ if .State.Settings.RowTapToggle }}row-tap-toggle{{ end }}">
   <div class="container">
@@ -69,10 +69,12 @@
                            {{ if .Done }}checked{{ end }}>
                     <span class="checkmark"></span>
                   </label>
-                  {{ if .Time }}
-                    <span class="task-time">{{ .Time }}</span>
-                  {{ end }}
-                  <span class="task-title">{{ .Title }}</span>
+                  <div class="task-details">
+                    {{ if .Time }}
+                      <span class="task-time">{{ .Time }}</span>
+                    {{ end }}
+                    <span class="task-title">{{ .Title }}</span>
+                  </div>
                 </li>
               {{ end }}
             {{ end }}
@@ -89,8 +91,8 @@
               <li class="adhoc-divider">{{ index $.Trans "adhoc" }}</li>
               {{ range .Day.Tasks }}
                 {{ if .AdHoc }}
-                  <li class="task-item {{ if .Done }}is-done{{ end }} color-{{ if .Color }}{{ .Color }}{{ else }}default{{ end }}" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; width: 100%; box-sizing: border-box;">
-                    <div style="display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; flex-grow: 1;">
+                  <li class="task-item adhoc-task-item {{ if .Done }}is-done{{ end }} color-{{ if .Color }}{{ .Color }}{{ else }}default{{ end }}" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; width: 100%; box-sizing: border-box;">
+                    <div class="adhoc-inner" style="display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; flex-grow: 1;">
                       <label class="checkbox-container" style="flex-shrink: 0;">
                         <input type="checkbox" 
                                class="task-checkbox" 
@@ -99,10 +101,12 @@
                                {{ if .Done }}checked{{ end }}>
                         <span class="checkmark"></span>
                       </label>
-                      {{ if .Time }}
-                        <span class="task-time" style="flex-shrink: 0;">{{ .Time }}</span>
-                      {{ end }}
-                      <span class="task-title" style="min-width: 0;">{{ .Title }}</span>
+                      <div class="task-details" style="min-width: 0; flex-grow: 1;">
+                        {{ if .Time }}
+                          <span class="task-time" style="flex-shrink: 0;">{{ .Time }}</span>
+                        {{ end }}
+                        <span class="task-title" style="min-width: 0;">{{ .Title }}</span>
+                      </div>
                     </div>
                     <button class="btn-delete-adhoc" data-day="{{ $dayKey }}" data-task-id="{{ .ID }}" title="{{ index $.Trans "delete" }}">x</button>
                   </li>
@@ -119,7 +123,7 @@
         
         <!-- Dashboard Quick Add Form (Hidden by default, toggled via header '+' button) -->
         <div class="quick-add-task-form" style="display: none; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid var(--border); background-color: var(--bg-card); border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); flex-shrink: 0; box-sizing: border-box; width: 100%;">
-          <input type="text" class="quick-add-time" placeholder="00:00" style="width: 55px; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); text-align: center; font-family: inherit; box-sizing: border-box;" required>
+          <input type="text" class="quick-add-time" placeholder="00:00" style="width: 55px; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); text-align: center; font-family: inherit; box-sizing: border-box;">
           <input type="text" class="quick-add-title" placeholder="{{ index $.Trans "add_task" }}" style="flex-grow: 1; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box;" required>
           <button class="btn btn-primary btn-sm btn-quick-add" data-day="{{ $dayKey }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; min-height: 25px; flex-shrink: 0;">+</button>
         </div>
@@ -132,6 +136,6 @@
   <!-- Toast for system messages -->
   <div id="toast" class="toast"></div>
 
-  <script src="/static/js/app.js?v=5"></script>
+  <script src="/static/js/app.js?v=6"></script>
 </body>
 </html>

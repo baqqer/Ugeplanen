@@ -103,6 +103,8 @@ First, create an empty `plan.json` on your host if it does not already exist:
 touch plan.json
 ```
 
+> **Crucial Requirement:** You **must** physically create this empty `plan.json` file on your host machine (e.g., using `touch plan.json`) *before* executing the `docker run` command. If the file does not exist on the host, your container engine (Docker/Podman) will either fail to start with a `no such file or directory` statfs error, or it will mistakenly create `plan.json` as a *directory* on the host, which prevents the container from starting or reading the file.
+
 #### Running the Container
 
 **Using Docker:**

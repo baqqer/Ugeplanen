@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const day = btn.dataset.day;
 
     const submitQuickAdd = async () => {
-      const time = timeInput.value.trim() || '12:00';
+      const time = timeInput.value.trim();
       const title = titleInput.value.trim();
 
       if (!title) {
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedColor = color || 'default';
       tr.innerHTML = `
         <td>
-          <input type="text" class="input-time" value="${time || '12:00'}" placeholder="00:00" required>
+          <input type="text" class="input-time" value="${time || ''}" placeholder="00:00">
         </td>
         <td>
           <input type="text" class="input-title" value="${title || ''}" placeholder="Opgave / Task" required>
@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const newId = generateId();
-        const tr = createTaskRow(newId, '12:00', '', false);
+        const tr = createTaskRow(newId, '', '', false);
         tbody.appendChild(tr);
       });
     });

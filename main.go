@@ -228,8 +228,8 @@ func loadPlan() error {
 	defer stateMu.Unlock()
 
 	file, err := os.ReadFile(planPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	if err != nil || len(file) == 0 {
+		if err == nil || os.IsNotExist(err) {
 			// Initialize default plan
 			_, currentWeek := time.Now().ISOWeek()
 			currentState = AppState{

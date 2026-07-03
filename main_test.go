@@ -311,3 +311,36 @@ func TestLoggingMiddleware(t *testing.T) {
 		t.Error("Expected log to contain duration formatted strictly in milliseconds with 'ms)' suffix")
 	}
 }
+
+func TestLoadEmptyPlan(t *testing.T) {
+	// Create an empty test file (representing touch plan.json)
+	testPath := "test_empty_plan.json"
+	f, err := os.Create(testPath)
+	if err != nil {
+		t.Fatalf("Failed to create empty test file: %v", err)
+	}
+	f.Close()
+	defer os.Remove(testPath)
+
+	// Set planPath to empty test file
+	oldPath := planPath
+	planPath = testPath
+	defer func() {
+		planPath = oldPath
+	}()
+
+	// Execute loadPlan
+	err = loadPlan()
+	if err != nil {
+		t.Fatalf("Expected loadPlan to succeed on empty 0-byte file, got %v", err)
+	}
+
+	stateMu.RLock()
+	if currentState.Settings.Language != "da" {
+		t.Errorf("Expected default language 'da', got %s", currentState.Settings.Language)
+	}
+	if currentState.WeekPlan.Monday.DayNameDa != "Mandag" {
+		t.Errorf("Expected day name 'Mandag', got %s", currentState.WeekPlan.Monday.DayNameDa)
+	}
+	stateMu.RUnlock()
+}

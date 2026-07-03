@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="{{ .Language }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ index .Trans "settings" }} - {{ index .Trans "title" }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="{{ if .State.Settings.TouchFriendlyMode }}touch-friendly{{ end }}">
+  <div class="container">
+    <header>
+      <h1>{{ index .Trans "settings" }}</h1>
+      <div class="controls">
+        <!-- Back to Dashboard -->
+        <a href="/" class="btn btn-secondary">
+          {{ index .Trans "back_to_dashboard" }}
+        </a>
+        <!-- Save Settings Button -->
+        <button id="btn-save-settings" class="btn btn-primary" data-success-msg="{{ index .Trans "save_success" }}">
+          {{ index .Trans "save_settings" }}
+        </button>
+      </div>
+    </header>
+
+    <main class="edit-container settings-container" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem;">
+      
+      <!-- 1. Language Selection Section -->
+      <section class="settings-section" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+          {{ index .Trans "language_label" }}
+        </h2>
+        <div class="settings-group">
+          <select id="settings-language" class="input-color" style="width: 100%; max-width: 320px;">
+            <option value="da" {{ if eq .State.Settings.Language "da" }}selected{{ end }}>Dansk</option>
+            <option value="en" {{ if eq .State.Settings.Language "en" }}selected{{ end }}>English</option>
+          </select>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4;">
+            {{ index .Trans "supported_languages_helper" }}
+          </p>
+        </div>
+      </section>
+
+      <!-- 2. Layout Settings Section -->
+      <section class="settings-section" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+          {{ index .Trans "layout_settings_header" }}
+        </h2>
+        
+        <!-- Desktop Layout -->
+        <div class="settings-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <label style="display: block; font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">
+            {{ index .Trans "desktop_layout_label" }}
+          </label>
+          <select id="settings-desktop-layout" class="input-color" style="width: 100%; max-width: 320px;">
+            <option value="horizontal" {{ if eq .State.Settings.DesktopLayout "horizontal" }}selected{{ end }}>
+              {{ index .Trans "layout_horizontal" }}
+            </option>
+            <option value="vertical" {{ if eq .State.Settings.DesktopLayout "vertical" }}selected{{ end }}>
+              {{ index .Trans "layout_vertical" }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Mobile Layout -->
+        <div class="settings-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <label style="display: block; font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">
+            {{ index .Trans "mobile_layout_label" }}
+          </label>
+          <select id="settings-mobile-layout" class="input-color" style="width: 100%; max-width: 320px;">
+            <option value="vertical" {{ if eq .State.Settings.MobileLayout "vertical" }}selected{{ end }}>
+              {{ index .Trans "layout_vertical" }}
+            </option>
+            <option value="horizontal" {{ if eq .State.Settings.MobileLayout "horizontal" }}selected{{ end }}>
+              {{ index .Trans "layout_horizontal" }}
+            </option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 3. Additional Settings Section -->
+      <section class="settings-section" style="display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+          {{ index .Trans "additional_settings_header" }}
+        </h2>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <!-- Show Passed Days -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-show-passed-days" {{ if .State.Settings.ShowPassedDays }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "show_passed_days_label" }}
+            </label>
+          </div>
+
+          <!-- Highlight Today -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-highlight-today" {{ if .State.Settings.HighlightToday }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "highlight_today_label" }}
+            </label>
+          </div>
+
+          <!-- Show Dates -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-show-dates" {{ if .State.Settings.ShowDates }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "show_dates_label" }}
+            </label>
+          </div>
+
+          <!-- Show Week Number -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-show-week-number" {{ if .State.Settings.ShowWeekNumber }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "show_week_number_label" }}
+            </label>
+          </div>
+
+          <!-- Touch Friendly Mode -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-touch-friendly-mode" {{ if .State.Settings.TouchFriendlyMode }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "touch_friendly_mode_label" }}
+            </label>
+          </div>
+
+          <!-- Row Tap Toggle -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-row-tap-toggle" {{ if .State.Settings.RowTapToggle }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "row_tap_toggle_label" }}
+            </label>
+          </div>
+
+          <!-- Automatically Reset Week Plan -->
+          <div class="settings-group" style="display: flex; align-items: center;">
+            <label class="checkbox-container" style="padding-left: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; position: relative;">
+              <input type="checkbox" id="settings-auto-reset-week" {{ if .State.Settings.AutoResetWeek }}checked{{ end }}>
+              <span class="checkmark" style="top: 2px;"></span>
+              {{ index .Trans "auto_reset_week_label" }}
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Buttons -->
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.5rem; width: 100%;">
+        <a href="/" class="btn btn-secondary">
+          {{ index .Trans "back_to_dashboard" }}
+        </a>
+        <button id="btn-save-settings-footer" class="btn btn-primary" onclick="document.getElementById('btn-save-settings').click()">
+          {{ index .Trans "save_settings" }}
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast for system messages -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/js/app.js?v=4"></script>
+</body>
+</html>

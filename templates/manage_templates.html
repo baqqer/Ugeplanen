@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="{{ .Language }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ index .Trans "manage_templates" }} - {{ index .Trans "title" }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="{{ if .State.Settings.TouchFriendlyMode }}touch-friendly{{ end }}">
+  <div class="container">
+    <header>
+      <h1>{{ index .Trans "manage_templates" }}</h1>
+      <div class="controls">
+        <!-- Back to Dashboard -->
+        <a href="/" class="btn btn-secondary">
+          {{ index .Trans "back_to_dashboard" }}
+        </a>
+        <!-- Save Template Button -->
+        <button id="btn-save-template-form" class="btn btn-primary" data-success-msg="{{ index .Trans "save_template_success" }}">
+          {{ index .Trans "save_template" }}
+        </button>
+      </div>
+    </header>
+
+    <main class="edit-container">
+      {{ range .State.TemplatePlan.Days }}
+      <section class="edit-day-section">
+        <h2 class="edit-day-title">
+          {{ getDayName .Day $.Language }}
+        </h2>
+        
+        <table class="edit-tasks-table">
+          <thead>
+            <tr>
+              <th style="width: 120px;">{{ index $.Trans "time" }}</th>
+              <th>{{ index $.Trans "task" }}</th>
+              <th style="width: 140px;">{{ index $.Trans "color" }}</th>
+              <th style="width: 100px;">{{ index $.Trans "actions" }}</th>
+            </tr>
+          </thead>
+          <tbody id="tasks-body-{{ .Key }}" 
+                 data-name-da="{{ .Day.DayNameDa }}" 
+                 data-name-en="{{ .Day.DayNameEn }}"
+                 data-no-tasks-msg="{{ index $.Trans "no_tasks" }}">
+            {{ if .Day.Tasks }}
+              {{ range .Day.Tasks }}
+              <tr class="task-row" data-id="{{ .ID }}" data-done="{{ .Done }}" data-color="{{ .Color }}">
+                <td>
+                  <input type="text" class="input-time" value="{{ .Time }}" placeholder="00:00" required>
+                </td>
+                <td>
+                  <input type="text" class="input-title" value="{{ .Title }}" placeholder="Opgave / Task" required>
+                </td>
+                <td>
+                  <select class="input-color">
+                    <option value="default" {{ if or (eq .Color "") (eq .Color "default") }}selected{{ end }}>{{ index $.Trans "color_default" }}</option>
+                    <option value="red" {{ if eq .Color "red" }}selected{{ end }}>{{ index $.Trans "color_red" }}</option>
+                    <option value="green" {{ if eq .Color "green" }}selected{{ end }}>{{ index $.Trans "color_green" }}</option>
+                    <option value="blue" {{ if eq .Color "blue" }}selected{{ end }}>{{ index $.Trans "color_blue" }}</option>
+                    <option value="yellow" {{ if eq .Color "yellow" }}selected{{ end }}>{{ index $.Trans "color_yellow" }}</option>
+                    <option value="purple" {{ if eq .Color "purple" }}selected{{ end }}>{{ index $.Trans "color_purple" }}</option>
+                  </select>
+                </td>
+                <td style="white-space: nowrap;">
+                  <button class="btn btn-secondary btn-sm btn-copy-task" type="button" title="{{ index $.Trans "copy_to" }}">
+                    Copy
+                  </button>
+                  <button class="btn btn-danger btn-sm btn-delete-task" type="button" title="{{ index $.Trans "delete" }}">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+              {{ end }}
+            {{ else }}
+              <tr class="no-tasks-row">
+                <td colspan="4" class="no-tasks">{{ index $.Trans "no_tasks" }}</td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+
+        <button class="btn btn-secondary btn-sm btn-add-task" data-day="{{ .Key }}" type="button">
+          + {{ index $.Trans "add_task" }}
+        </button>
+      </section>
+      {{ end }}
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+        <a href="/" class="btn btn-secondary">
+          {{ index .Trans "back_to_dashboard" }}
+        </a>
+        <button id="btn-save-template-form-footer" class="btn btn-primary" onclick="document.getElementById('btn-save-template-form').click()">
+          {{ index .Trans "save_template" }}
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Copy Task Modal -->
+  <div id="copy-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3>{{ index .Trans "copy_target_title" }}</h3>
+      <p id="copy-modal-task-desc" style="margin: 0.5rem 0 1.5rem; font-style: italic; color: var(--text-secondary);"></p>
+      
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <button id="modal-select-all" class="btn btn-secondary btn-sm" type="button">{{ index .Trans "select_all" }}</button>
+        <button id="modal-deselect-all" class="btn btn-secondary btn-sm" type="button">{{ index .Trans "deselect_all" }}</button>
+      </div>
+
+      <div class="modal-days-grid">
+        {{ range .State.TemplatePlan.Days }}
+        <label class="modal-day-option">
+          <input type="checkbox" name="copy-target-day" value="{{ .Key }}" class="modal-day-checkbox">
+          <span>{{ getDayName .Day $.Language }}</span>
+        </label>
+        {{ end }}
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button id="modal-cancel-btn" class="btn btn-secondary" type="button">{{ index .Trans "cancel" }}</button>
+        <button id="modal-confirm-btn" class="btn btn-primary" type="button" data-success-msg="{{ index .Trans "copy_success" }}">{{ index .Trans "copy" }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast for system messages -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/js/app.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="{{ .Language }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ index .Trans "title" }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="{{ if .State.Settings.TouchFriendlyMode }}touch-friendly{{ end }} {{ if .State.Settings.RowTapToggle }}row-tap-toggle{{ end }}">
+  <div class="container">
+    <header>
+      <h1>
+        {{ index .Trans "title" }}
+        {{ if .State.Settings.ShowWeekNumber }}
+          <span class="week-number-header">- {{ index .Trans "week" }} {{ .CurrentWeekNum }}</span>
+        {{ end }}
+      </h1>
+      <div class="controls">
+        <!-- Manage Templates Button -->
+        <a href="/templates" class="btn btn-secondary">
+          {{ index .Trans "manage_templates" }}
+        </a>
+        <!-- Reset Week Button -->
+        <a href="/reset-week" id="btn-reset-week-link" class="btn btn-danger" data-confirm-msg="{{ index .Trans "confirm_reset" }}">
+          {{ index .Trans "reset_week" }}
+        </a>
+        <!-- Settings Button -->
+        <a href="/settings" class="btn btn-primary">
+          {{ index .Trans "settings" }}
+        </a>
+      </div>
+    </header>
+
+    <main class="week-grid desktop-{{ .State.Settings.DesktopLayout }} mobile-{{ .State.Settings.MobileLayout }}">
+      {{ $currentDayIdx := getDayIndex $.CurrentDay }}
+      {{ range .State.WeekPlan.Days }}
+      {{ $dayKey := .Key }}
+      {{ $dayIdx := getDayIndex $dayKey }}
+      {{ if or $.State.Settings.ShowPassedDays (ge $dayIdx $currentDayIdx) }}
+      <div class="day-card {{ if and $.State.Settings.HighlightToday (eq $dayKey $.CurrentDay) }}is-today{{ end }}" id="day-{{ $dayKey }}" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div style="display: flex; flex-direction: column; flex-grow: 1;">
+          <div class="day-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
+              {{ getDayName .Day $.Language }}
+              {{ if $.State.Settings.ShowDates }}
+                <span class="day-date-label">({{ getDayDate $dayKey $.Language }})</span>
+              {{ end }}
+              {{ if and $.State.Settings.HighlightToday (eq $dayKey $.CurrentDay) }}
+                <span class="today-tag">{{ index $.Trans "today" }}</span>
+              {{ end }}
+            </span>
+            <div style="display: flex; align-items: center; gap: 0.375rem;">
+              <span class="badge">{{ len .Day.Tasks }}</span>
+              <button class="btn-toggle-quick-add" data-day="{{ $dayKey }}" title="{{ index $.Trans "add_task" }}">+</button>
+            </div>
+          </div>
+          <ul class="task-list">
+            <!-- 1. Render Template/Default Tasks -->
+            {{ $hasTemplateTasks := false }}
+            {{ range .Day.Tasks }}
+              {{ if not .AdHoc }}
+                {{ $hasTemplateTasks = true }}
+                <li class="task-item {{ if .Done }}is-done{{ end }} color-{{ if .Color }}{{ .Color }}{{ else }}default{{ end }}">
+                  <label class="checkbox-container">
+                    <input type="checkbox" 
+                           class="task-checkbox" 
+                           data-day="{{ $dayKey }}" 
+                           data-task-id="{{ .ID }}"
+                           {{ if .Done }}checked{{ end }}>
+                    <span class="checkmark"></span>
+                  </label>
+                  {{ if .Time }}
+                    <span class="task-time">{{ .Time }}</span>
+                  {{ end }}
+                  <span class="task-title">{{ .Title }}</span>
+                </li>
+              {{ end }}
+            {{ end }}
+
+            <!-- 2. Render Ad-Hoc Divider and Tasks -->
+            {{ $hasAdHocTasks := false }}
+            {{ range .Day.Tasks }}
+              {{ if .AdHoc }}
+                {{ $hasAdHocTasks = true }}
+              {{ end }}
+            {{ end }}
+
+            {{ if $hasAdHocTasks }}
+              <li class="adhoc-divider">{{ index $.Trans "adhoc" }}</li>
+              {{ range .Day.Tasks }}
+                {{ if .AdHoc }}
+                  <li class="task-item {{ if .Done }}is-done{{ end }} color-{{ if .Color }}{{ .Color }}{{ else }}default{{ end }}" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; width: 100%; box-sizing: border-box;">
+                    <div style="display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; flex-grow: 1;">
+                      <label class="checkbox-container" style="flex-shrink: 0;">
+                        <input type="checkbox" 
+                               class="task-checkbox" 
+                               data-day="{{ $dayKey }}" 
+                               data-task-id="{{ .ID }}"
+                               {{ if .Done }}checked{{ end }}>
+                        <span class="checkmark"></span>
+                      </label>
+                      {{ if .Time }}
+                        <span class="task-time" style="flex-shrink: 0;">{{ .Time }}</span>
+                      {{ end }}
+                      <span class="task-title" style="min-width: 0;">{{ .Title }}</span>
+                    </div>
+                    <button class="btn-delete-adhoc" data-day="{{ $dayKey }}" data-task-id="{{ .ID }}" title="{{ index $.Trans "delete" }}">x</button>
+                  </li>
+                {{ end }}
+              {{ end }}
+            {{ end }}
+
+            <!-- 3. If there are no tasks at all -->
+            {{ if and (not $hasTemplateTasks) (not $hasAdHocTasks) }}
+              <li class="no-tasks">{{ index $.Trans "no_tasks" }}</li>
+            {{ end }}
+          </ul>
+        </div>
+        
+        <!-- Dashboard Quick Add Form (Hidden by default, toggled via header '+' button) -->
+        <div class="quick-add-task-form" style="display: none; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid var(--border); background-color: var(--bg-card); border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); flex-shrink: 0; box-sizing: border-box; width: 100%;">
+          <input type="text" class="quick-add-time" placeholder="00:00" style="width: 55px; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); text-align: center; font-family: inherit; box-sizing: border-box;" required>
+          <input type="text" class="quick-add-title" placeholder="{{ index $.Trans "add_task" }}" style="flex-grow: 1; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box;" required>
+          <button class="btn btn-primary btn-sm btn-quick-add" data-day="{{ $dayKey }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; min-height: 25px; flex-shrink: 0;">+</button>
+        </div>
+      </div>
+      {{ end }}
+      {{ end }}
+    </main>
+  </div>
+
+  <!-- Toast for system messages -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/js/app.js?v=4"></script>
+</body>
+</html>

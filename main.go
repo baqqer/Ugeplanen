@@ -526,14 +526,17 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(lrw, r)
 
-		log.Printf("[%s] %s %s %s - %d %s (%v)",
+		duration := time.Since(start)
+		durationMs := float64(duration.Nanoseconds()) / 1e6
+
+		log.Printf("[%s] %s %s %s - %d %s (%.3fms)",
 			start.Format("2006-01-02 15:04:05"),
 			r.RemoteAddr,
 			r.Method,
 			r.RequestURI,
 			lrw.statusCode,
 			http.StatusText(lrw.statusCode),
-			time.Since(start),
+			durationMs,
 		)
 	})
 }

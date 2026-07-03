@@ -1,4 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Automatic mobile device detection
+  const detectMobile = () => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent.toLowerCase())) {
+      return true;
+    }
+    if (window.matchMedia("(max-width: 768px)").matches && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+      return true;
+    }
+    return false;
+  };
+
+  if (detectMobile()) {
+    document.body.classList.add('is-mobile');
+  }
+
   // Initialize Toast Helper
   const showToast = (message) => {
     let toast = document.getElementById('toast');

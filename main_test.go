@@ -307,4 +307,7 @@ func TestLoggingMiddleware(t *testing.T) {
 	if !strings.Contains(logStr, "418 I'm a teapot") {
 		t.Error("Expected log to contain status code and text '418 I'm a teapot'")
 	}
+	if !strings.Contains(logStr, "ms)") {
+		t.Error("Expected log to contain duration formatted strictly in milliseconds with 'ms)' suffix")
+	}
 }

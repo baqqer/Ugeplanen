@@ -305,7 +305,27 @@ func savePlanAtomic() error {
 		return err
 	}
 
-	return os.Rename(tmpName, planPath)
+	renameErr := os.Rename(tmpName, planPath)
+	if renameErr != nil {
+		// If rename fails (e.g. because of Docker single-file bind mount block),
+		// fall back to direct file write (truncate and write).
+		log.Printf("Warning: atomic rename failed (%v), falling back to direct write for %s", renameErr, planPath)
+		
+		f, errWrite := os.OpenFile(planPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		if errWrite != nil {
+			return fmt.Errorf("direct write fallback failed: %v (original rename error: %v)", errWrite, renameErr)
+		}
+		defer f.Close()
+		
+		if _, errWrite = f.Write(data); errWrite != nil {
+			return fmt.Errorf("direct write fallback write failed: %v (original rename error: %v)", errWrite, renameErr)
+		}
+		
+		// Remove the temp file now that we succeeded via fallback
+		_ = os.Remove(tmpName)
+		return nil
+	}
+	return nil
 }
 
 // resetWeekPlanToTemplate resets currentState.WeekPlan to currentState.TemplatePlan tasks (with fresh IDs)

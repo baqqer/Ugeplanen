@@ -124,6 +124,9 @@ To run and develop Ugeplanen locally:
 ---
 
 ## 7. Key Rules for AI Assistance
-- **Security:** Do not bind to public WAN addresses; limit default hosting to local interfaces or clearly document local-network scope.
+- **Security:** Do not bind to public WAN addresses; limit default hosting to local interfaces or clearly document local-network scope (Ugeplanen default port is `9000`).
 - **Simplicity Over Overengineering:** Stick to Go's robust standard library before pulling in heavy frameworks (like Gin or Fiber) unless absolute necessity arises.
 - **Styling:** Rely entirely on Vanilla CSS. Avoid TailwindCSS or other CSS utility libraries to keep pages fast, self-contained, and easily customizable.
+- **Atomic File Swaps & Bind-Mount Resiliency:** To prevent data corruptions, always use atomic file renames for database writes (`os.Rename`). However, because single-file bind mounts in Docker/Podman lock the file's host inode (returning `device or resource busy` on renames), database writing logic MUST provide a robust fallback to open, truncate (`os.O_TRUNC`), and write to `plan.json` directly.
+- **Standard Request Logging:** All traffic (standard HTML templates, API endpoints, and `/static/` assets) must be logged directly to stdout via `loggingMiddleware`. All latencies must be formatted and logged strictly in float64 milliseconds (`%.3fms`) to maintain uniform, millisecond-precise logging.
+- **Automatic Mobile Header Stacking:** For perfect readability and thumb-friendly touch targets on mobile viewports, always ensure that `.controls` action buttons stack vertically (`flex-direction: column; width: 100%`) under `body.is-mobile` (dynamically appended by the user-agent check in `app.js`). Avoid cramming multi-button operations side-by-side on narrow viewports.

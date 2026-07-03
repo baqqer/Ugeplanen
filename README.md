@@ -10,7 +10,10 @@ Ugeplanen is a lightweight, self-contained weekly calendar and task planner desi
 * **Ad-hoc Tasks**: Add quick, one-off tasks directly to any day on the dashboard. These tasks can be completed or deleted on the fly and are cleared out when a new week is started.
 * **On-the-fly Localization**: Full English and Danish translations are supported. Language preference is saved in the user settings and dynamically updates the interface on reload.
 * **Mobile Touch Support**: Customizable options for Touch-Friendly Mode (enlarging checkboxes, buttons, and input targets to exceed 44x44px requirements) and Row-Tap Toggle (allowing you to check off tasks by tapping anywhere on their card row).
+* **Automatic Mobile Layout**: Automatically detects when accessed by mobile devices (via user-agent and touch metrics) and stacks dashboard action buttons vertically for perfect full-width visibility and finger-friendly tap targets.
 * **Automatic Weekly Reset**: An optional setting that automatically detects a calendar ISO week transition on render and refreshes the active week with a fresh, uncompleted clone of the master template plan.
+* **Centralized HTTP Access Logging**: Transparent middleware wrapper that intercepts all request traffic (standard pages, API routes, and static assets) and logs structured entries to stdout in real-time. Displays client IP, timestamp, method, request URI, status code, status text, and response latency formatted strictly in milliseconds (`%.3fms`).
+* **Robust Docker Bind-Mount Fallback**: Employs safe, atomic temporary file swaps for database writes. If the atomic swap fails (e.g. `device or resource busy` due to single-file bind mounts in Docker or Podman), the database gracefully falls back to opening, truncating, and writing to `plan.json` directly.
 * **Zero-Configuration Database**: Uses a plain-text `plan.json` file. If the file does not exist, the server automatically initializes it with a default structure.
 
 ## Technical Stack

@@ -97,6 +97,12 @@ var (
 	planPath     = "plan.json"
 )
 
+func init() {
+	if envPath := os.Getenv("PLAN_PATH"); envPath != "" {
+		planPath = envPath
+	}
+}
+
 // UI Translations
 var translations = map[string]map[string]string{
 	"da": {

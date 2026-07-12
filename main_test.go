@@ -64,7 +64,7 @@ func TestTemplates(t *testing.T) {
 		"getDayIndex": func(key string) int {
 			return getDayIndex(key)
 		},
-		"getDayDate": func(key string, lang string) string {
+		"getDayDate": func(key string, lang string, offsetDays int) string {
 			return "Jun 29"
 		},
 	}
@@ -85,6 +85,16 @@ func TestTemplates(t *testing.T) {
 		State: AppState{
 			Settings: Settings{Language: "da"},
 			WeekPlan: testPlan,
+		},
+		Weeks: []WeekRenderData{
+			{
+				TargetKey:  "current",
+				Title:      "Denne uge",
+				Plan:       testPlan,
+				IsCurrent:  true,
+				WeekNum:    28,
+				OffsetDays: 0,
+			},
 		},
 	}
 
@@ -142,7 +152,7 @@ func TestMobileTouchSettings(t *testing.T) {
 		"getDayIndex": func(key string) int {
 			return 0
 		},
-		"getDayDate": func(key string, lang string) string {
+		"getDayDate": func(key string, lang string, offsetDays int) string {
 			return "Jun 29"
 		},
 	}
@@ -196,6 +206,15 @@ func TestWeekTransition(t *testing.T) {
 				},
 			},
 		},
+		NextWeekPlan: WeekPlan{
+			Monday: Day{
+				DayNameDa: "Mandag",
+				DayNameEn: "Monday",
+				Tasks: []Task{
+					{ID: "planned_task", Title: "Planned Task", Done: true},
+				},
+			},
+		},
 		TemplatePlan: WeekPlan{
 			Monday: Day{
 				DayNameDa: "Mandag",
@@ -226,7 +245,7 @@ func TestWeekTransition(t *testing.T) {
 	}
 	stateMu.RUnlock()
 
-	// 2. Transition when AutoResetWeek is enabled
+	// 2. Transition when AutoResetWeek is enabled (wipes/resets both weeks)
 	stateMu.Lock()
 	currentState.LastWeekNum = currentWeek - 1
 	if currentState.LastWeekNum <= 0 {
@@ -246,17 +265,22 @@ func TestWeekTransition(t *testing.T) {
 	if len(currentState.WeekPlan.Monday.Tasks) != 1 || currentState.WeekPlan.Monday.Tasks[0].Title != "Template Task" {
 		t.Error("Expected WeekPlan to automatically reset to TemplatePlan when week changes and AutoResetWeek is true")
 	}
+	if len(currentState.NextWeekPlan.Monday.Tasks) != 1 || currentState.NextWeekPlan.Monday.Tasks[0].Title != "Template Task" {
+		t.Error("Expected NextWeekPlan to automatically reset to TemplatePlan when week changes and AutoResetWeek is true")
+	}
 	stateMu.RUnlock()
 
-	// 3. Transition when AutoResetWeek is disabled
+	// 3. Transition when AutoResetWeek is disabled (shifts NextWeekPlan into WeekPlan)
 	stateMu.Lock()
 	currentState.LastWeekNum = currentWeek - 1
 	if currentState.LastWeekNum <= 0 {
 		currentState.LastWeekNum = 52
 	}
 	currentState.Settings.AutoResetWeek = false
-	// Set active tasks to adhoc
-	currentState.WeekPlan.Monday.Tasks = []Task{{ID: "current_adhoc2", Title: "Current Task 2", Done: true}}
+	// Set mock NextWeekPlan with planned tasks
+	currentState.NextWeekPlan.Monday.Tasks = []Task{{ID: "planned_task_from_previous_week", Title: "Planned Task", Done: true}}
+	// Set mock WeekPlan with active tasks that should be shifted out
+	currentState.WeekPlan.Monday.Tasks = []Task{{ID: "expired_task", Title: "Expired Task", Done: true}}
 	stateMu.Unlock()
 
 	checkWeekTransition()
@@ -265,8 +289,11 @@ func TestWeekTransition(t *testing.T) {
 	if currentState.LastWeekNum != currentWeek {
 		t.Errorf("Expected LastWeekNum to update to %d, got %d", currentWeek, currentState.LastWeekNum)
 	}
-	if len(currentState.WeekPlan.Monday.Tasks) != 1 || currentState.WeekPlan.Monday.Tasks[0].ID != "current_adhoc2" {
-		t.Error("Expected WeekPlan to NOT reset when AutoResetWeek is false")
+	if len(currentState.WeekPlan.Monday.Tasks) != 1 || currentState.WeekPlan.Monday.Tasks[0].ID != "planned_task_from_previous_week" {
+		t.Errorf("Expected WeekPlan to shift from NextWeekPlan when AutoResetWeek is false, got length %d", len(currentState.WeekPlan.Monday.Tasks))
+	}
+	if len(currentState.NextWeekPlan.Monday.Tasks) != 1 || currentState.NextWeekPlan.Monday.Tasks[0].Title != "Template Task" {
+		t.Error("Expected NextWeekPlan to be populated with fresh template tasks after shifting")
 	}
 	stateMu.RUnlock()
 }
@@ -343,4 +370,112 @@ func TestLoadEmptyPlan(t *testing.T) {
 		t.Errorf("Expected day name 'Mandag', got %s", currentState.WeekPlan.Monday.DayNameDa)
 	}
 	stateMu.RUnlock()
+}
+
+func TestSaveTemplateUpdatesBothWeeks(t *testing.T) {
+	stateMu.Lock()
+	currentState = AppState{
+		WeekPlan: WeekPlan{
+			Sunday: Day{
+				Tasks: []Task{},
+			},
+		},
+		NextWeekPlan: WeekPlan{
+			Sunday: Day{
+				Tasks: []Task{},
+			},
+		},
+		TemplatePlan: WeekPlan{
+			Sunday: Day{
+				Tasks: []Task{},
+			},
+		},
+	}
+	stateMu.Unlock()
+
+	// Simulate receiving a POST request on /api/save-template with a task on Sunday
+	newTemplate := WeekPlan{
+		Sunday: Day{
+			Tasks: []Task{
+				{Time: "12:00", Title: "Sunday Template Task", Color: "default"},
+			},
+		},
+	}
+
+	stateMu.Lock()
+	currentState.TemplatePlan = newTemplate
+	resetWeekPlanToTemplate()
+	resetNextWeekPlanToTemplate()
+	stateMu.Unlock()
+
+	// Verify that both current week and next week plans have the Sunday task!
+	stateMu.RLock()
+	defer stateMu.RUnlock()
+
+	if len(currentState.WeekPlan.Sunday.Tasks) != 1 {
+		t.Errorf("Expected current week Sunday to have 1 task, got %d", len(currentState.WeekPlan.Sunday.Tasks))
+	} else if currentState.WeekPlan.Sunday.Tasks[0].Title != "Sunday Template Task" {
+		t.Errorf("Expected current week Sunday task title to be 'Sunday Template Task', got '%s'", currentState.WeekPlan.Sunday.Tasks[0].Title)
+	}
+
+	if len(currentState.NextWeekPlan.Sunday.Tasks) != 1 {
+		t.Errorf("Expected next week Sunday to have 1 task, got %d", len(currentState.NextWeekPlan.Sunday.Tasks))
+	} else if currentState.NextWeekPlan.Sunday.Tasks[0].Title != "Sunday Template Task" {
+		t.Errorf("Expected next week Sunday task title to be 'Sunday Template Task', got '%s'", currentState.NextWeekPlan.Sunday.Tasks[0].Title)
+	}
+}
+
+func TestResetWeekPreservesAdHoc(t *testing.T) {
+	stateMu.Lock()
+	currentState = AppState{
+		WeekPlan: WeekPlan{
+			Monday: Day{
+				Tasks: []Task{
+					{ID: "template_task_id", Title: "Template Task", Done: true, AdHoc: false},
+					{ID: "adhoc_task_id", Title: "Adhoc Task", Done: false, AdHoc: true},
+				},
+			},
+		},
+		TemplatePlan: WeekPlan{
+			Monday: Day{
+				Tasks: []Task{
+					{Title: "Template Task Blueprint", AdHoc: false},
+				},
+			},
+		},
+	}
+	stateMu.Unlock()
+
+	resetWeekPlanToTemplate()
+
+	stateMu.RLock()
+	defer stateMu.RUnlock()
+
+	mondayTasks := currentState.WeekPlan.Monday.Tasks
+	// We expect 2 tasks: 1 template task from TemplatePlan, and 1 adhoc task preserved!
+	if len(mondayTasks) != 2 {
+		t.Fatalf("Expected 2 tasks on Monday, got %d", len(mondayTasks))
+	}
+
+	// Verify adhoc task is preserved
+	var hasAdhoc bool
+	var hasTemplate bool
+	for _, task := range mondayTasks {
+		if task.AdHoc {
+			if task.ID == "adhoc_task_id" && task.Title == "Adhoc Task" {
+				hasAdhoc = true
+			}
+		} else {
+			if task.Title == "Template Task Blueprint" && !task.Done {
+				hasTemplate = true
+			}
+		}
+	}
+
+	if !hasAdhoc {
+		t.Error("Expected existing ad-hoc task to be preserved during reset")
+	}
+	if !hasTemplate {
+		t.Error("Expected standard template tasks to be reset to template blueprint")
+	}
 }

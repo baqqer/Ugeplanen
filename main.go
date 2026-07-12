@@ -86,6 +86,7 @@ type Settings struct {
 type AppState struct {
 	Settings     Settings `json:"settings"`
 	WeekPlan     WeekPlan `json:"week_plan"`
+	NextWeekPlan WeekPlan `json:"next_week_plan"`
 	TemplatePlan WeekPlan `json:"template_plan"`
 	LastWeekNum  int      `json:"last_week_num"` // Stores the last ISO week number rendered/processed
 }
@@ -99,126 +100,130 @@ var (
 // UI Translations
 var translations = map[string]map[string]string{
 	"da": {
-		"title":                  "Ugeplanen",
-		"edit_plan":              "Rediger Ugeplan",
-		"back_to_dashboard":      "Tilbage til Dashboard",
-		"save":                  "Gem ugeplan",
-		"save_settings":         "Gem indstillinger",
-		"add_task":              "Tilføj Opgave",
-		"delete":                "Slet",
-		"time":                  "Tid",
-		"task":                  "Opgave",
-		"done":                  "Udført",
-		"no_tasks":              "Ingen opgaver for denne dag.",
-		"toggle_lang":           "English",
-		"language_label":        "Sprog",
-		"other_lang_code":       "en",
-		"day":                   "Dag",
-		"actions":               "Handlinger",
-		"save_success":          "Ugeplanen blev gemt succesfuldt!",
-		"confirm_discard":       "Er du sikker på, at du vil forlade siden? Ulæste ændringer vil gå tabt.",
-		"today":                 "I dag",
-		"apply_template":        "Hent fra skabelon",
-		"save_template_success": "Skabelonen blev gemt succesfuldt!",
-		"apply_template_success": "Skabelon hentet! Husk at gemme din ugeplan.",
-		"confirm_apply":         "Dette vil overskrive dine ændringer i editoren. Vil du fortsætte?",
-		"copy":                  "Kopier",
-		"copy_to":               "Kopier til...",
-		"copy_target_title":     "Vælg dage at kopiere til",
-		"select_all":            "Vælg alle",
-		"deselect_all":          "Fravælg alle",
-		"cancel":                "Annuller",
-		"copy_success":          "Opgave kopieret!",
-		"color":                 "Farve",
-		"color_default":         "Standard",
-		"color_red":             "Rød",
-		"color_green":           "Grøn",
-		"color_blue":            "Blå",
-		"color_yellow":          "Gul",
-		"color_purple":          "Lilla",
-		"settings":              "Indstillinger",
-		"layout_settings_header": "Layoutindstillinger",
+		"title":                      "Ugeplanen",
+		"edit_plan":                  "Rediger Ugeplan",
+		"back_to_dashboard":          "Tilbage til Dashboard",
+		"save":                       "Gem ugeplan",
+		"save_settings":              "Gem indstillinger",
+		"add_task":                   "Tilføj Opgave",
+		"delete":                     "Slet",
+		"time":                       "Tid",
+		"task":                       "Opgave",
+		"done":                       "Udført",
+		"no_tasks":                   "Ingen opgaver for denne dag.",
+		"toggle_lang":                "English",
+		"language_label":             "Sprog",
+		"other_lang_code":            "en",
+		"day":                        "Dag",
+		"actions":                    "Handlinger",
+		"save_success":               "Ugeplanen blev gemt succesfuldt!",
+		"confirm_discard":            "Er du sikker på, at du vil forlade siden? Ulæste ændringer vil gå tabt.",
+		"today":                      "I dag",
+		"apply_template":             "Hent fra skabelon",
+		"save_template_success":      "Skabelonen blev gemt succesfuldt!",
+		"apply_template_success":     "Skabelon hentet! Husk at gemme din ugeplan.",
+		"confirm_apply":              "Dette vil overskrive dine ændringer i editoren. Vil du fortsætte?",
+		"copy":                       "Kopier",
+		"copy_to":                    "Kopier til...",
+		"copy_target_title":          "Vælg dage at kopiere til",
+		"select_all":                 "Vælg alle",
+		"deselect_all":               "Fravælg alle",
+		"cancel":                     "Annuller",
+		"copy_success":               "Opgave kopieret!",
+		"color":                      "Farve",
+		"color_default":              "Standard",
+		"color_red":                  "Rød",
+		"color_green":                "Grøn",
+		"color_blue":                 "Blå",
+		"color_yellow":               "Gul",
+		"color_purple":               "Lilla",
+		"settings":                   "Indstillinger",
+		"layout_settings_header":     "Layoutindstillinger",
 		"additional_settings_header": "Flere indstillinger",
 		"supported_languages_helper": "Understøttede sprog: Dansk (da) og Engelsk (en)",
-		"desktop_layout_label":  "Layout på computer (Desktop)",
-		"mobile_layout_label":   "Layout på mobil (Mobile)",
-		"layout_horizontal":     "Vandret (Kolonner)",
-		"layout_vertical":       "Lodret (Liste)",
-		"show_passed_days_label": "Vis ugedage der er passeret",
-		"highlight_today_label":  "Fremhæv nuværende ugedag",
-		"show_dates_label":      "Vis datoer på ugedage",
-		"show_week_number_label": "Vis ugenummer på dashboard",
-		"touch_friendly_mode_label": "Touchvenlig tilstand (Større knapper & felter)",
-		"row_tap_toggle_label":      "Tryk på hele opgaven for at markere afsluttet",
-		"auto_reset_week_label":     "Nulstil automatisk opgaver når en ny uge starter",
-		"week":                  "Uge",
-		"manage_templates":      "Rediger skabelon",
-		"save_template":         "Gem skabelon",
-		"reset_week":            "Nulstil uge til skabelon",
-		"confirm_reset":         "Er du sikker på, at du vil nulstille denne uges plan til skabelon-skabelonen? Dine uge-specifikke tilføjelser vil gå tabt.",
-		"reset_success":         "Ugen blev nulstillet succesfuldt!",
-		"adhoc":                 "Ad-hoc",
+		"desktop_layout_label":       "Layout på computer (Desktop)",
+		"mobile_layout_label":        "Layout på mobil (Mobile)",
+		"layout_horizontal":          "Vandret (Kolonner)",
+		"layout_vertical":            "Lodret (Liste)",
+		"show_passed_days_label":     "Vis ugedage der er passeret",
+		"highlight_today_label":      "Fremhæv nuværende ugedag",
+		"show_dates_label":           "Vis datoer på ugedage",
+		"show_week_number_label":     "Vis ugenummer på dashboard",
+		"touch_friendly_mode_label":  "Touchvenlig tilstand (Større knapper & felter)",
+		"row_tap_toggle_label":       "Tryk på hele opgaven for at markere afsluttet",
+		"auto_reset_week_label":      "Nulstil automatisk opgaver når en ny uge starter",
+		"week":                       "Uge",
+		"manage_templates":           "Rediger skabelon",
+		"save_template":              "Gem skabelon",
+		"reset_week":                 "Nulstil uge til skabelon",
+		"confirm_reset":              "Er du sikker på, at du vil nulstille denne uges plan til skabelon-skabelonen? Dine uge-specifikke tilføjelser vil gå tabt.",
+		"reset_success":              "Ugen blev nulstillet succesfuldt!",
+		"adhoc":                      "Ad-hoc",
+		"this_week":                  "Denne uge",
+		"next_week":                  "Næste uge",
 	},
 	"en": {
-		"title":                  "Ugeplanen",
-		"edit_plan":              "Edit Week Plan",
-		"back_to_dashboard":      "Back to Dashboard",
-		"save":                  "Save Week Plan",
-		"save_settings":         "Save settings",
-		"add_task":              "Add Task",
-		"delete":                "Delete",
-		"time":                  "Time",
-		"task":                  "Task",
-		"done":                  "Done",
-		"no_tasks":              "No tasks for this day.",
-		"toggle_lang":           "Dansk",
-		"language_label":        "Language",
-		"other_lang_code":       "da",
-		"day":                   "Day",
-		"actions":               "Actions",
-		"save_success":          "Week plan saved successfully!",
-		"confirm_discard":       "Are you sure you want to leave? Unsaved changes will be lost.",
-		"today":                 "Today",
-		"apply_template":        "Apply Template",
-		"save_template_success": "Template saved successfully!",
-		"apply_template_success": "Template applied! Remember to save your week plan.",
-		"confirm_apply":         "This will overwrite your changes in the editor. Do you want to continue?",
-		"copy":                  "Copy",
-		"copy_to":               "Copy to...",
-		"copy_target_title":     "Select days to copy to",
-		"select_all":            "Select all",
-		"deselect_all":          "Deselect all",
-		"cancel":                "Cancel",
-		"copy_success":          "Task copied!",
-		"color":                 "Color",
-		"color_default":         "Default",
-		"color_red":             "Red",
-		"color_green":           "Green",
-		"color_blue":            "Blue",
-		"color_yellow":          "Yellow",
-		"color_purple":          "Purple",
-		"settings":              "Settings",
-		"layout_settings_header": "Layout Settings",
+		"title":                      "Ugeplanen",
+		"edit_plan":                  "Edit Week Plan",
+		"back_to_dashboard":          "Back to Dashboard",
+		"save":                       "Save Week Plan",
+		"save_settings":              "Save settings",
+		"add_task":                   "Add Task",
+		"delete":                     "Delete",
+		"time":                       "Time",
+		"task":                       "Task",
+		"done":                       "Done",
+		"no_tasks":                   "No tasks for this day.",
+		"toggle_lang":                "Dansk",
+		"language_label":             "Language",
+		"other_lang_code":            "da",
+		"day":                        "Day",
+		"actions":                    "Actions",
+		"save_success":               "Week plan saved successfully!",
+		"confirm_discard":            "Are you sure you want to leave? Unsaved changes will be lost.",
+		"today":                      "Today",
+		"apply_template":             "Apply Template",
+		"save_template_success":      "Template saved successfully!",
+		"apply_template_success":     "Template applied! Remember to save your week plan.",
+		"confirm_apply":              "This will overwrite your changes in the editor. Do you want to continue?",
+		"copy":                       "Copy",
+		"copy_to":                    "Copy to...",
+		"copy_target_title":          "Select days to copy to",
+		"select_all":                 "Select all",
+		"deselect_all":               "Deselect all",
+		"cancel":                     "Cancel",
+		"copy_success":               "Task copied!",
+		"color":                      "Color",
+		"color_default":              "Default",
+		"color_red":                  "Red",
+		"color_green":                "Green",
+		"color_blue":                 "Blue",
+		"color_yellow":               "Yellow",
+		"color_purple":               "Purple",
+		"settings":                   "Settings",
+		"layout_settings_header":     "Layout Settings",
 		"additional_settings_header": "Additional Settings",
 		"supported_languages_helper": "Supported languages: Danish (da) and English (en)",
-		"desktop_layout_label":  "Desktop Layout",
-		"mobile_layout_label":   "Mobile Layout",
-		"layout_horizontal":     "Horizontal (Columns)",
-		"layout_vertical":       "Vertical (List)",
-		"show_passed_days_label": "Show weekdays already passed",
-		"highlight_today_label":  "Highlight current weekday",
-		"show_dates_label":      "Show dates on weekdays",
-		"show_week_number_label": "Show week number on dashboard",
-		"touch_friendly_mode_label": "Touch Friendly Mode (Larger buttons & targets for mobile)",
-		"row_tap_toggle_label":      "Tap entire task row to toggle done status",
-		"auto_reset_week_label":     "Automatically reset week plan tasks when a new week starts",
-		"week":                  "Week",
-		"manage_templates":      "Edit Template",
-		"save_template":         "Save Template",
-		"reset_week":            "Reset Week to Template",
-		"confirm_reset":         "Are you sure you want to reset this week's plan to the template blueprint? Your week-specific additions will be lost.",
-		"reset_success":         "Week reset successfully!",
-		"adhoc":                 "Ad-hoc",
+		"desktop_layout_label":       "Desktop Layout",
+		"mobile_layout_label":        "Mobile Layout",
+		"layout_horizontal":          "Horizontal (Columns)",
+		"layout_vertical":            "Vertical (List)",
+		"show_passed_days_label":     "Show weekdays already passed",
+		"highlight_today_label":      "Highlight current weekday",
+		"show_dates_label":           "Show dates on weekdays",
+		"show_week_number_label":     "Show week number on dashboard",
+		"touch_friendly_mode_label":  "Touch Friendly Mode (Larger buttons & targets for mobile)",
+		"row_tap_toggle_label":       "Tap entire task row to toggle done status",
+		"auto_reset_week_label":      "Automatically reset week plan tasks when a new week starts",
+		"week":                       "Week",
+		"manage_templates":           "Edit Template",
+		"save_template":              "Save Template",
+		"reset_week":                 "Reset Week to Template",
+		"confirm_reset":              "Are you sure you want to reset this week's plan to the template blueprint? Your week-specific additions will be lost.",
+		"reset_success":              "Week reset successfully!",
+		"adhoc":                      "Ad-hoc",
+		"this_week":                  "This week",
+		"next_week":                  "Next week",
 	},
 }
 
@@ -254,6 +259,15 @@ func loadPlan() error {
 					Saturday:  Day{DayNameDa: "Lørdag", DayNameEn: "Saturday", Tasks: []Task{}},
 					Sunday:    Day{DayNameDa: "Søndag", DayNameEn: "Sunday", Tasks: []Task{}},
 				},
+				NextWeekPlan: WeekPlan{
+					Monday:    Day{DayNameDa: "Mandag", DayNameEn: "Monday", Tasks: []Task{}},
+					Tuesday:   Day{DayNameDa: "Tirsdag", DayNameEn: "Tuesday", Tasks: []Task{}},
+					Wednesday: Day{DayNameDa: "Onsdag", DayNameEn: "Wednesday", Tasks: []Task{}},
+					Thursday:  Day{DayNameDa: "Torsdag", DayNameEn: "Thursday", Tasks: []Task{}},
+					Friday:    Day{DayNameDa: "Fredag", DayNameEn: "Friday", Tasks: []Task{}},
+					Saturday:  Day{DayNameDa: "Lørdag", DayNameEn: "Saturday", Tasks: []Task{}},
+					Sunday:    Day{DayNameDa: "Søndag", DayNameEn: "Sunday", Tasks: []Task{}},
+				},
 				TemplatePlan: WeekPlan{
 					Monday:    Day{DayNameDa: "Mandag", DayNameEn: "Monday", Tasks: []Task{}},
 					Tuesday:   Day{DayNameDa: "Tirsdag", DayNameEn: "Tuesday", Tasks: []Task{}},
@@ -277,6 +291,9 @@ func loadPlan() error {
 	if err != nil {
 		return err
 	}
+
+	// Detect if NextWeekPlan is completely uninitialized (e.g. upgrading from an older schema)
+	nextWeekUninitialized := currentState.NextWeekPlan.Monday.DayNameDa == ""
 
 	// Sanitize and repair missing Day Names in loaded state (e.g. if modified by APIs or tests)
 	sanitizeDayNames := func(dp *Day, daName, enName string) {
@@ -305,6 +322,20 @@ func loadPlan() error {
 	sanitizeDayNames(&currentState.TemplatePlan.Friday, "Fredag", "Friday")
 	sanitizeDayNames(&currentState.TemplatePlan.Saturday, "Lørdag", "Saturday")
 	sanitizeDayNames(&currentState.TemplatePlan.Sunday, "Søndag", "Sunday")
+
+	// 3. Repair NextWeekPlan Day Names
+	sanitizeDayNames(&currentState.NextWeekPlan.Monday, "Mandag", "Monday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Tuesday, "Tirsdag", "Tuesday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Wednesday, "Onsdag", "Wednesday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Thursday, "Torsdag", "Thursday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Friday, "Fredag", "Friday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Saturday, "Lørdag", "Saturday")
+	sanitizeDayNames(&currentState.NextWeekPlan.Sunday, "Søndag", "Sunday")
+
+	if nextWeekUninitialized {
+		// Clone standard templates into next week
+		currentState.NextWeekPlan = cloneWeekPlanFromTemplate(currentState.TemplatePlan)
+	}
 
 	return nil
 }
@@ -343,17 +374,17 @@ func savePlanAtomic() error {
 		// If rename fails (e.g. because of Docker single-file bind mount block),
 		// fall back to direct file write (truncate and write).
 		log.Printf("Warning: atomic rename failed (%v), falling back to direct write for %s", renameErr, planPath)
-		
+
 		f, errWrite := os.OpenFile(planPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 		if errWrite != nil {
 			return fmt.Errorf("direct write fallback failed: %v (original rename error: %v)", errWrite, renameErr)
 		}
 		defer f.Close()
-		
+
 		if _, errWrite = f.Write(data); errWrite != nil {
 			return fmt.Errorf("direct write fallback write failed: %v (original rename error: %v)", errWrite, renameErr)
 		}
-		
+
 		// Remove the temp file now that we succeeded via fallback
 		_ = os.Remove(tmpName)
 		return nil
@@ -361,8 +392,7 @@ func savePlanAtomic() error {
 	return nil
 }
 
-// resetWeekPlanToTemplate resets currentState.WeekPlan to currentState.TemplatePlan tasks (with fresh IDs)
-func resetWeekPlanToTemplate() {
+func cloneWeekPlanFromTemplate(tpl WeekPlan) WeekPlan {
 	cloneTasks := func(src Day, dayKey string) Day {
 		cloned := []Task{}
 		for i, t := range src.Tasks {
@@ -381,17 +411,72 @@ func resetWeekPlanToTemplate() {
 		}
 	}
 
-	currentState.WeekPlan.Monday = cloneTasks(currentState.TemplatePlan.Monday, "monday")
-	currentState.WeekPlan.Tuesday = cloneTasks(currentState.TemplatePlan.Tuesday, "tuesday")
-	currentState.WeekPlan.Wednesday = cloneTasks(currentState.TemplatePlan.Wednesday, "wednesday")
-	currentState.WeekPlan.Thursday = cloneTasks(currentState.TemplatePlan.Thursday, "thursday")
-	currentState.WeekPlan.Friday = cloneTasks(currentState.TemplatePlan.Friday, "friday")
-	currentState.WeekPlan.Saturday = cloneTasks(currentState.TemplatePlan.Saturday, "saturday")
-	currentState.WeekPlan.Sunday = cloneTasks(currentState.TemplatePlan.Sunday, "sunday")
+	return WeekPlan{
+		Monday:    cloneTasks(tpl.Monday, "monday"),
+		Tuesday:   cloneTasks(tpl.Tuesday, "tuesday"),
+		Wednesday: cloneTasks(tpl.Wednesday, "wednesday"),
+		Thursday:  cloneTasks(tpl.Thursday, "thursday"),
+		Friday:    cloneTasks(tpl.Friday, "friday"),
+		Saturday:  cloneTasks(tpl.Saturday, "saturday"),
+		Sunday:    cloneTasks(tpl.Sunday, "sunday"),
+	}
+}
+
+// resetWeekPlanKeepAdHoc resets the standard template tasks in target to match tpl (with fresh IDs and unchecked status),
+// while preserving any existing ad-hoc tasks in target.
+func resetWeekPlanKeepAdHoc(target *WeekPlan, tpl WeekPlan) {
+	resetDay := func(targetDay *Day, tplDay Day, dayKey string) {
+		// 1. Gather all existing ad-hoc tasks from the target day
+		var adhocTasks []Task
+		for _, t := range targetDay.Tasks {
+			if t.AdHoc {
+				adhocTasks = append(adhocTasks, t)
+			}
+		}
+
+		// 2. Clone the template tasks for this day (with fresh IDs, unchecked)
+		var clonedTasks []Task
+		for i, t := range tplDay.Tasks {
+			clonedTasks = append(clonedTasks, Task{
+				ID:    fmt.Sprintf("task_%s_%d_%d", dayKey, time.Now().UnixNano(), i),
+				Time:  t.Time,
+				Title: t.Title,
+				Done:  false,
+				Color: t.Color,
+			})
+		}
+
+		// 3. Combine both lists (cloned standard template tasks first, then adhoc tasks)
+		combined := append(clonedTasks, adhocTasks...)
+
+		// 4. Sort the combined list so everything remains chronological
+		sortTasks(combined)
+
+		// 5. Update target day's tasks
+		targetDay.Tasks = combined
+	}
+
+	resetDay(&target.Monday, tpl.Monday, "monday")
+	resetDay(&target.Tuesday, tpl.Tuesday, "tuesday")
+	resetDay(&target.Wednesday, tpl.Wednesday, "wednesday")
+	resetDay(&target.Thursday, tpl.Thursday, "thursday")
+	resetDay(&target.Friday, tpl.Friday, "friday")
+	resetDay(&target.Saturday, tpl.Saturday, "saturday")
+	resetDay(&target.Sunday, tpl.Sunday, "sunday")
+}
+
+// resetWeekPlanToTemplate resets currentState.WeekPlan to currentState.TemplatePlan tasks (with fresh IDs) while preserving ad-hoc tasks.
+func resetWeekPlanToTemplate() {
+	resetWeekPlanKeepAdHoc(&currentState.WeekPlan, currentState.TemplatePlan)
+}
+
+// resetNextWeekPlanToTemplate resets currentState.NextWeekPlan to currentState.TemplatePlan tasks (with fresh IDs) while preserving ad-hoc tasks.
+func resetNextWeekPlanToTemplate() {
+	resetWeekPlanKeepAdHoc(&currentState.NextWeekPlan, currentState.TemplatePlan)
 }
 
 // checkWeekTransition checks if the calendar week has changed. If so, it updates the saved week number.
-// If the AutoResetWeek setting is enabled, it automatically resets the week's plan to the standard template.
+// If the AutoResetWeek setting is enabled, it automatically resets both weeks. Otherwise, it shifts NextWeekPlan into WeekPlan.
 func checkWeekTransition() {
 	_, currentWeek := time.Now().ISOWeek()
 
@@ -405,17 +490,42 @@ func checkWeekTransition() {
 
 	if currentState.LastWeekNum != currentWeek {
 		log.Printf("New week transition detected! From week %d to week %d.", currentState.LastWeekNum, currentWeek)
+
+		last := currentState.LastWeekNum
 		currentState.LastWeekNum = currentWeek
-		
-		if currentState.Settings.AutoResetWeek {
-			log.Println("AutoResetWeek is enabled. Automatically resetting tasks to standard template...")
+
+		isOneWeekTransition := (last == currentWeek-1) || (last == 52 && currentWeek == 1) || (last == 53 && currentWeek == 1)
+
+		if isOneWeekTransition {
+			if currentState.Settings.AutoResetWeek {
+				log.Println("AutoResetWeek is enabled. Automatically resetting both current and next week to standard template...")
+				resetWeekPlanToTemplate()
+				resetNextWeekPlanToTemplate()
+			} else {
+				log.Println("Shifting NextWeekPlan to WeekPlan and generating new NextWeekPlan from template...")
+				currentState.WeekPlan = currentState.NextWeekPlan
+				resetNextWeekPlanToTemplate()
+			}
+		} else {
+			log.Printf("Multi-week transition detected (%d -> %d). Resetting both weeks to template...", last, currentWeek)
 			resetWeekPlanToTemplate()
+			resetNextWeekPlanToTemplate()
 		}
+
 		stateMu.Unlock()
 		savePlanAtomic()
 		return
 	}
 	stateMu.Unlock()
+}
+
+type WeekRenderData struct {
+	TargetKey  string // "current" or "next"
+	Title      string // "Denne uge" / "This week" or "Næste uge" / "Next week"
+	Plan       WeekPlan
+	IsCurrent  bool
+	WeekNum    int
+	OffsetDays int
 }
 
 // TemplateData passed to html templates
@@ -426,6 +536,7 @@ type TemplateData struct {
 	DayKeys        []string
 	CurrentDay     string
 	CurrentWeekNum int
+	Weeks          []WeekRenderData
 }
 
 func getTemplateData() TemplateData {
@@ -459,6 +570,28 @@ func getTemplateData() TemplateData {
 
 	_, weekNum := time.Now().ISOWeek()
 
+	nextWeekTime := time.Now().AddDate(0, 0, 7)
+	_, nextWeekNum := nextWeekTime.ISOWeek()
+
+	weeks := []WeekRenderData{
+		{
+			TargetKey:  "current",
+			Title:      translations[lang]["this_week"],
+			Plan:       currentState.WeekPlan,
+			IsCurrent:  true,
+			WeekNum:    weekNum,
+			OffsetDays: 0,
+		},
+		{
+			TargetKey:  "next",
+			Title:      translations[lang]["next_week"],
+			Plan:       currentState.NextWeekPlan,
+			IsCurrent:  false,
+			WeekNum:    nextWeekNum,
+			OffsetDays: 7,
+		},
+	}
+
 	return TemplateData{
 		Language:       lang,
 		State:          currentState,
@@ -466,12 +599,13 @@ func getTemplateData() TemplateData {
 		DayKeys:        []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"},
 		CurrentDay:     currentDay,
 		CurrentWeekNum: weekNum,
+		Weeks:          weeks,
 	}
 }
 
 var daMonths = []string{"jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"}
 
-func getWeekDateString(dayIndex int, lang string) string {
+func getWeekDateString(dayIndex int, lang string, offsetDays int) string {
 	now := time.Now()
 	weekday := int(now.Weekday())
 	daysFromMonday := weekday - 1
@@ -479,7 +613,7 @@ func getWeekDateString(dayIndex int, lang string) string {
 		daysFromMonday = 6
 	}
 	mondayDate := now.AddDate(0, 0, -daysFromMonday)
-	targetDate := mondayDate.AddDate(0, 0, dayIndex)
+	targetDate := mondayDate.AddDate(0, 0, dayIndex+offsetDays)
 
 	if lang == "en" {
 		return targetDate.Format("Jan 2")
@@ -591,12 +725,12 @@ func main() {
 		"getDayIndex": func(key string) int {
 			return getDayIndex(key)
 		},
-		"getDayDate": func(key string, lang string) string {
+		"getDayDate": func(key string, lang string, offsetDays int) string {
 			idx := getDayIndex(key) - 1
 			if idx < 0 || idx > 6 {
 				return ""
 			}
-			return getWeekDateString(idx, lang)
+			return getWeekDateString(idx, lang, offsetDays)
 		},
 	}
 
@@ -667,9 +801,10 @@ func main() {
 		}
 
 		var req struct {
-			Day    string `json:"day"`
-			TaskID string `json:"task_id"`
-			Done   bool   `json:"done"`
+			Day        string `json:"day"`
+			TaskID     string `json:"task_id"`
+			Done       bool   `json:"done"`
+			WeekTarget string `json:"week_target"` // "current" or "next"
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -690,21 +825,26 @@ func main() {
 			}
 		}
 
+		plan := &currentState.WeekPlan
+		if req.WeekTarget == "next" {
+			plan = &currentState.NextWeekPlan
+		}
+
 		switch req.Day {
 		case "monday":
-			updateTasks(&currentState.WeekPlan.Monday)
+			updateTasks(&plan.Monday)
 		case "tuesday":
-			updateTasks(&currentState.WeekPlan.Tuesday)
+			updateTasks(&plan.Tuesday)
 		case "wednesday":
-			updateTasks(&currentState.WeekPlan.Wednesday)
+			updateTasks(&plan.Wednesday)
 		case "thursday":
-			updateTasks(&currentState.WeekPlan.Thursday)
+			updateTasks(&plan.Thursday)
 		case "friday":
-			updateTasks(&currentState.WeekPlan.Friday)
+			updateTasks(&plan.Friday)
 		case "saturday":
-			updateTasks(&currentState.WeekPlan.Saturday)
+			updateTasks(&plan.Saturday)
 		case "sunday":
-			updateTasks(&currentState.WeekPlan.Sunday)
+			updateTasks(&plan.Sunday)
 		}
 		stateMu.Unlock()
 
@@ -758,9 +898,10 @@ func main() {
 		}
 
 		var req struct {
-			Day   string `json:"day"`
-			Time  string `json:"time"`
-			Title string `json:"title"`
+			Day        string `json:"day"`
+			Time       string `json:"time"`
+			Title      string `json:"title"`
+			WeekTarget string `json:"week_target"` // "current" or "next"
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -777,7 +918,7 @@ func main() {
 		timeStr := req.Time
 
 		stateMu.Lock()
-		
+
 		// Create a brand new independent task with a unique timestamp ID
 		newTask := Task{
 			ID:    fmt.Sprintf("task_%d", time.Now().UnixNano()),
@@ -788,22 +929,27 @@ func main() {
 			AdHoc: true,
 		}
 
+		plan := &currentState.WeekPlan
+		if req.WeekTarget == "next" {
+			plan = &currentState.NextWeekPlan
+		}
+
 		var day *Day
 		switch req.Day {
 		case "monday":
-			day = &currentState.WeekPlan.Monday
+			day = &plan.Monday
 		case "tuesday":
-			day = &currentState.WeekPlan.Tuesday
+			day = &plan.Tuesday
 		case "wednesday":
-			day = &currentState.WeekPlan.Wednesday
+			day = &plan.Wednesday
 		case "thursday":
-			day = &currentState.WeekPlan.Thursday
+			day = &plan.Thursday
 		case "friday":
-			day = &currentState.WeekPlan.Friday
+			day = &plan.Friday
 		case "saturday":
-			day = &currentState.WeekPlan.Saturday
+			day = &plan.Saturday
 		case "sunday":
-			day = &currentState.WeekPlan.Sunday
+			day = &plan.Sunday
 		}
 
 		if day == nil {
@@ -834,8 +980,9 @@ func main() {
 		}
 
 		var req struct {
-			Day    string `json:"day"`
-			TaskID string `json:"task_id"`
+			Day        string `json:"day"`
+			TaskID     string `json:"task_id"`
+			WeekTarget string `json:"week_target"` // "current" or "next"
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -858,21 +1005,26 @@ func main() {
 			day.Tasks = newTasks
 		}
 
+		plan := &currentState.WeekPlan
+		if req.WeekTarget == "next" {
+			plan = &currentState.NextWeekPlan
+		}
+
 		switch req.Day {
 		case "monday":
-			deleteTask(&currentState.WeekPlan.Monday)
+			deleteTask(&plan.Monday)
 		case "tuesday":
-			deleteTask(&currentState.WeekPlan.Tuesday)
+			deleteTask(&plan.Tuesday)
 		case "wednesday":
-			deleteTask(&currentState.WeekPlan.Wednesday)
+			deleteTask(&plan.Wednesday)
 		case "thursday":
-			deleteTask(&currentState.WeekPlan.Thursday)
+			deleteTask(&plan.Thursday)
 		case "friday":
-			deleteTask(&currentState.WeekPlan.Friday)
+			deleteTask(&plan.Friday)
 		case "saturday":
-			deleteTask(&currentState.WeekPlan.Saturday)
+			deleteTask(&plan.Saturday)
 		case "sunday":
-			deleteTask(&currentState.WeekPlan.Sunday)
+			deleteTask(&plan.Sunday)
 		}
 		stateMu.Unlock()
 
@@ -929,6 +1081,9 @@ func main() {
 
 		stateMu.Lock()
 		currentState.TemplatePlan = req
+		// Automatically synchronize updated templates across both active weeks while preserving adhoc tasks!
+		resetWeekPlanToTemplate()
+		resetNextWeekPlanToTemplate()
 		stateMu.Unlock()
 
 		if err := savePlanAtomic(); err != nil {

@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkbox.addEventListener('change', async (e) => {
       const day = checkbox.dataset.day;
       const taskId = checkbox.dataset.taskId;
+      const weekTarget = checkbox.dataset.weekTarget || "current";
       const done = checkbox.checked;
       const taskItem = checkbox.closest('.task-item');
 
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ day, task_id: taskId, done })
+          body: JSON.stringify({ day, task_id: taskId, done, week_target: weekTarget })
         });
 
         if (!response.ok) {
@@ -93,15 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Reset Week Link Confirmation
-  const resetWeekLink = document.getElementById('btn-reset-week-link');
-  if (resetWeekLink) {
-    resetWeekLink.addEventListener('click', (e) => {
-      if (!confirm(resetWeekLink.dataset.confirmMsg || 'Are you sure you want to reset this week?')) {
-        e.preventDefault();
-      }
-    });
-  }
+
 
   // Dashboard Quick-Add Form Toggle
   const toggleQuickAddButtons = document.querySelectorAll('.btn-toggle-quick-add');
@@ -134,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       const day = btn.dataset.day;
       const taskId = btn.dataset.taskId;
+      const weekTarget = btn.dataset.weekTarget || "current";
       const taskItem = btn.closest('.task-item');
 
       if (!confirm('Are you sure you want to delete this ad-hoc task?')) {
@@ -146,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ day, task_id: taskId })
+          body: JSON.stringify({ day, task_id: taskId, week_target: weekTarget })
         });
 
         if (!response.ok) {
@@ -160,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           taskItem.remove();
           
-          const card = document.getElementById(`day-${day}`);
+          const card = document.getElementById(`day-${weekTarget}-${day}`);
           const taskList = card.querySelector('.task-list');
           const activeTasks = taskList.querySelectorAll('.task-item');
           
@@ -189,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeInput = card.querySelector('.quick-add-time');
     const titleInput = card.querySelector('.quick-add-title');
     const day = btn.dataset.day;
+    const weekTarget = btn.dataset.weekTarget || "current";
 
     const submitQuickAdd = async () => {
       const time = timeInput.value.trim();
@@ -205,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ day, time, title })
+          body: JSON.stringify({ day, time, title, week_target: weekTarget })
         });
 
         if (!response.ok) {

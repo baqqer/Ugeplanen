@@ -292,6 +292,17 @@ func loadPlan() error {
 		return err
 	}
 
+	// Sanitize and repair missing or empty settings (backward compatibility/migration)
+	if currentState.Settings.Language == "" {
+		currentState.Settings.Language = "da"
+	}
+	if currentState.Settings.DesktopLayout == "" {
+		currentState.Settings.DesktopLayout = "horizontal"
+	}
+	if currentState.Settings.MobileLayout == "" {
+		currentState.Settings.MobileLayout = "vertical"
+	}
+
 	// Detect if NextWeekPlan is completely uninitialized (e.g. upgrading from an older schema)
 	nextWeekUninitialized := currentState.NextWeekPlan.Monday.DayNameDa == ""
 

@@ -479,3 +479,43 @@ func TestResetWeekPreservesAdHoc(t *testing.T) {
 		t.Error("Expected standard template tasks to be reset to template blueprint")
 	}
 }
+
+func TestSettingsMigration(t *testing.T) {
+	// Create a test file representing a plan.json without layout settings (older schema)
+	testPath := "test_old_settings.json"
+	content := `{
+		"settings": {
+			"language": "en"
+		}
+	}`
+	err := os.WriteFile(testPath, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create old settings mock: %v", err)
+	}
+	defer os.Remove(testPath)
+
+	// Route loadPlan to mock file
+	oldPath := planPath
+	planPath = testPath
+	defer func() {
+		planPath = oldPath
+	}()
+
+	err = loadPlan()
+	if err != nil {
+		t.Fatalf("Expected loadPlan to succeed on older config layout, got %v", err)
+	}
+
+	stateMu.RLock()
+	defer stateMu.RUnlock()
+
+	if currentState.Settings.Language != "en" {
+		t.Errorf("Expected language 'en' to be preserved, got '%s'", currentState.Settings.Language)
+	}
+	if currentState.Settings.DesktopLayout != "horizontal" {
+		t.Errorf("Expected desktop layout to migrate/fallback to 'horizontal', got '%s'", currentState.Settings.DesktopLayout)
+	}
+	if currentState.Settings.MobileLayout != "vertical" {
+		t.Errorf("Expected mobile layout to migrate/fallback to 'vertical', got '%s'", currentState.Settings.MobileLayout)
+	}
+}

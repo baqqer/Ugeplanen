@@ -1,0 +1,10 @@
+# Database
+plan.json
+test_plan_save.json
+
+# Binaries
+ugeplanen
+ugeplanen.test
+
+# macOS system files
+.DS_Store

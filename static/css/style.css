@@ -106,6 +106,13 @@ header h1::before {
   margin-left: 0.5rem;
 }
 
+.week-number-sub {
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 0.5rem;
+}
+
 .controls {
   display: flex;
   gap: 0.75rem;
@@ -806,7 +813,12 @@ body.touch-friendly {
   padding: 0.25rem 0.5rem;
 }
 
-/* Larger custom checkboxes */
+/* In touch-friendly mode, hide the task checkbox/radio button entirely */
+.touch-friendly .task-item .checkbox-container {
+  display: none;
+}
+
+/* Larger custom checkboxes for settings/modals */
 .touch-friendly .checkbox-container {
   padding-left: 2.25rem;
 }
@@ -873,14 +885,17 @@ body.touch-friendly {
   font-size: 1.25rem;
 }
 
-/* 3. Row Tap Toggle (Entire card row clickable feedback) */
-body.row-tap-toggle .task-item {
+/* 3. Row Tap Toggle & Touch-Friendly (Entire card row clickable feedback) */
+body.row-tap-toggle .task-item,
+body.touch-friendly .task-item {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  user-select: none;
 }
 
-body.row-tap-toggle .task-item:active {
+body.row-tap-toggle .task-item:active,
+body.touch-friendly .task-item:active {
   background-color: var(--primary-light);
   transform: scale(0.98);
 }

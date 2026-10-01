@@ -74,16 +74,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Task item click handler for RowTapToggle
+  // Task item click handler for RowTapToggle and Touch-Friendly Mode
   const taskItems = document.querySelectorAll('.task-item');
   taskItems.forEach(taskItem => {
     taskItem.addEventListener('click', (e) => {
-      // Check if row tap toggle is enabled via class on body
-      if (!document.body.classList.contains('row-tap-toggle')) {
+      // Check if row tap toggle or touch-friendly mode is enabled via class on body
+      if (!document.body.classList.contains('row-tap-toggle') && !document.body.classList.contains('touch-friendly')) {
         return;
       }
-      // Ignore clicks on checkbox itself or any interactive elements (buttons, links, inputs)
-      if (e.target.closest('.task-checkbox') || e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select')) {
+      // Ignore clicks on checkbox container itself or any interactive elements (buttons, links, inputs)
+      if (e.target.closest('.checkbox-container') || e.target.closest('.task-checkbox') || e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select')) {
         return;
       }
       const checkbox = taskItem.querySelector('.task-checkbox');

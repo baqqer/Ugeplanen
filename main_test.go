@@ -7,10 +7,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	tmpDir, err := os.MkdirTemp("", "ugeplanen_test_*")
+	if err != nil {
+		log.Fatalf("Failed to create temp dir for tests: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldPath := planPath
+	planPath = filepath.Join(tmpDir, "test_plan.json")
+	code := m.Run()
+	planPath = oldPath
+	os.Exit(code)
+}
 
 func TestDayGetName(t *testing.T) {
 	day := Day{
@@ -186,6 +201,159 @@ func TestMobileTouchSettings(t *testing.T) {
 	}
 	if !strings.Contains(html, "settings-row-tap-toggle") {
 		t.Error("Expected settings HTML to render row-tap-toggle checkbox")
+	}
+}
+
+func TestTouchFriendlyModeRadioRemoval(t *testing.T) {
+	// 1. Verify dashboard renders touch-friendly class on body when TouchFriendlyMode is enabled
+	funcMap := template.FuncMap{
+		"getDayName": func(day Day, lang string) string {
+			return day.GetName(lang)
+		},
+		"getDayIndex": func(key string) int {
+			return 0
+		},
+		"getDayDate": func(key string, lang string, offsetDays int) string {
+			return "Jun 29"
+		},
+	}
+
+	data := TemplateData{
+		Language: "da",
+		Trans:    translations["da"],
+		State: AppState{
+			Settings: Settings{
+				Language:          "da",
+				TouchFriendlyMode: true,
+				RowTapToggle:      false,
+			},
+			WeekPlan: WeekPlan{
+				Monday: Day{
+					DayNameDa: "Mandag",
+					DayNameEn: "Monday",
+					Tasks: []Task{
+						{ID: "t1", Title: "Task 1", Done: false},
+					},
+				},
+			},
+		},
+	}
+
+	tmplDash, err := template.New("dashboard.html").Funcs(funcMap).ParseFiles("templates/dashboard.html")
+	if err != nil {
+		t.Fatalf("Failed to parse dashboard.html: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmplDash.Execute(&buf, data); err != nil {
+		t.Errorf("Failed to execute dashboard.html: %v", err)
+	}
+
+	dashHTML := buf.String()
+	if !strings.Contains(dashHTML, "class=\"touch-friendly") {
+		t.Errorf("Expected dashboard body to contain touch-friendly class when TouchFriendlyMode is enabled")
+	}
+
+	// 2. Verify static CSS hides .checkbox-container on task items in touch-friendly mode
+	cssBytes, err := os.ReadFile("static/css/style.css")
+	if err != nil {
+		t.Fatalf("Failed to read static/css/style.css: %v", err)
+	}
+	cssStr := string(cssBytes)
+	if !strings.Contains(cssStr, ".touch-friendly .task-item .checkbox-container") || !strings.Contains(cssStr, "display: none;") {
+		t.Errorf("Expected static/css/style.css to hide task checkbox-container in touch-friendly mode")
+	}
+
+	// 3. Verify static JS handles touch-friendly mode in taskItem click listener
+	jsBytes, err := os.ReadFile("static/js/app.js")
+	if err != nil {
+		t.Fatalf("Failed to read static/js/app.js: %v", err)
+	}
+	jsStr := string(jsBytes)
+	if !strings.Contains(jsStr, "touch-friendly") {
+		t.Errorf("Expected static/js/app.js to support touch-friendly mode in task item click handler")
+	}
+	if !strings.Contains(jsStr, "e.target.closest('.checkbox-container')") {
+		t.Errorf("Expected static/js/app.js to ignore clicks originating directly from .checkbox-container")
+	}
+}
+
+func TestWeekNumberPlacement(t *testing.T) {
+	funcMap := template.FuncMap{
+		"getDayName": func(day Day, lang string) string {
+			return day.GetName(lang)
+		},
+		"getDayIndex": func(key string) int {
+			return 0
+		},
+		"getDayDate": func(key string, lang string, offsetDays int) string {
+			return "Jun 29"
+		},
+	}
+
+	tmplDash, err := template.New("dashboard.html").Funcs(funcMap).ParseFiles("templates/dashboard.html")
+	if err != nil {
+		t.Fatalf("Failed to parse dashboard.html: %v", err)
+	}
+
+	// 1. With ShowWeekNumber = true
+	dataWithWeekNum := TemplateData{
+		Language: "da",
+		Trans:    translations["da"],
+		CurrentWeekNum: 40,
+		State: AppState{
+			Settings: Settings{
+				Language:       "da",
+				ShowWeekNumber: true,
+			},
+		},
+		Weeks: []WeekRenderData{
+			{
+				TargetKey: "current",
+				Title:     "Denne uge",
+				WeekNum:   40,
+				Plan:      WeekPlan{},
+			},
+			{
+				TargetKey: "next",
+				Title:     "Næste uge",
+				WeekNum:   41,
+				Plan:      WeekPlan{},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := tmplDash.Execute(&buf, dataWithWeekNum); err != nil {
+		t.Fatalf("Failed to execute dashboard.html: %v", err)
+	}
+	htmlWith := buf.String()
+
+	// Header h1 must NOT contain week number or week-number-header
+	if strings.Contains(htmlWith, "week-number-header") {
+		t.Error("Expected main header not to have week-number-header")
+	}
+
+	// Section headers should contain week-number-sub with "Uge 40" and "Uge 41"
+	if !strings.Contains(htmlWith, "week-number-sub") {
+		t.Error("Expected week-number-sub to appear on week section headers")
+	}
+	if !strings.Contains(htmlWith, "Uge 40") || !strings.Contains(htmlWith, "Uge 41") {
+		t.Error("Expected week section headers to contain Uge 40 and Uge 41")
+	}
+
+	// 2. With ShowWeekNumber = false
+	dataNoWeekNum := dataWithWeekNum
+	dataNoWeekNum.State.Settings.ShowWeekNumber = false
+
+	var bufNo bytes.Buffer
+	if err := tmplDash.Execute(&bufNo, dataNoWeekNum); err != nil {
+		t.Fatalf("Failed to execute dashboard.html: %v", err)
+	}
+	htmlNo := bufNo.String()
+
+	if strings.Contains(htmlNo, "week-number-sub") {
+		t.Error("Expected no week-number-sub when ShowWeekNumber is false")
 	}
 }
 

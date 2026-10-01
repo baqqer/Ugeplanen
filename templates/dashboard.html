@@ -4,16 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ index .Trans "title" }}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=6">
+  <link rel="stylesheet" href="/static/css/style.css?v=7">
 </head>
 <body class="{{ if .State.Settings.TouchFriendlyMode }}touch-friendly{{ end }} {{ if .State.Settings.RowTapToggle }}row-tap-toggle{{ end }}">
   <div class="container">
     <header>
       <h1>
         {{ index .Trans "title" }}
-        {{ if .State.Settings.ShowWeekNumber }}
-          <span class="week-number-header">- {{ index .Trans "week" }} {{ .CurrentWeekNum }}</span>
-        {{ end }}
       </h1>
       <div class="controls">
         <!-- Manage Templates Button -->
@@ -29,9 +26,13 @@
 
     {{ range .Weeks }}
     <div class="week-section" style="margin-bottom: 3rem;">
-      <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
-        <span>{{ .Title }}</span>
-        <span style="font-size: 1rem; font-weight: normal; color: var(--text-secondary);">{{ index $.Trans "week" }} {{ .WeekNum }}</span>
+      <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: baseline; justify-content: space-between;">
+        <span>
+          {{ .Title }}
+          {{ if $.State.Settings.ShowWeekNumber }}
+            <span class="week-number-sub">- {{ index $.Trans "week" }} {{ .WeekNum }}</span>
+          {{ end }}
+        </span>
       </h2>
       <main class="week-grid desktop-{{ $.State.Settings.DesktopLayout }} mobile-{{ $.State.Settings.MobileLayout }}">
         {{ $currentDayIdx := getDayIndex $.CurrentDay }}
@@ -145,6 +146,6 @@
   <!-- Toast for system messages -->
   <div id="toast" class="toast"></div>
 
-  <script src="/static/js/app.js?v=6"></script>
+  <script src="/static/js/app.js?v=7"></script>
 </body>
 </html>

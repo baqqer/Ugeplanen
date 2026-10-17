@@ -572,4 +572,343 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+
+  // --- DASHBOARD VIEW FILTER TOGGLES (Show/Hide Tasks and Meals) ---
+  const initViewToggles = () => {
+    const btnTasks = document.getElementById('toggle-view-tasks');
+    const btnMeals = document.getElementById('toggle-view-meals');
+    if (!btnTasks && !btnMeals) return;
+
+    // Load saved preferences from localStorage (defaults to true)
+    const showTasks = localStorage.getItem('ugeplanen_show_tasks') !== 'false';
+    const showMeals = localStorage.getItem('ugeplanen_show_meals') !== 'false';
+
+    if (!showTasks) document.body.classList.add('hide-tasks');
+    if (!showMeals) document.body.classList.add('hide-meals');
+
+    // Ensure not both are hidden initially
+    if (document.body.classList.contains('hide-tasks') && document.body.classList.contains('hide-meals')) {
+      document.body.classList.remove('hide-tasks');
+      localStorage.setItem('ugeplanen_show_tasks', 'true');
+    }
+
+    const updateToggleButtons = () => {
+      const isTasksHidden = document.body.classList.contains('hide-tasks');
+      const isMealsHidden = document.body.classList.contains('hide-meals');
+      if (btnTasks) btnTasks.classList.toggle('active', !isTasksHidden);
+      if (btnMeals) btnMeals.classList.toggle('active', !isMealsHidden);
+    };
+
+    updateToggleButtons();
+
+    if (btnTasks) {
+      btnTasks.addEventListener('click', () => {
+        const isTasksHidden = document.body.classList.contains('hide-tasks');
+        const isMealsHidden = document.body.classList.contains('hide-meals');
+
+        // If tasks are currently visible, and meals are hidden, un-hide meals so at least one section is visible
+        if (!isTasksHidden && isMealsHidden) {
+          document.body.classList.remove('hide-meals');
+          localStorage.setItem('ugeplanen_show_meals', 'true');
+        }
+
+        document.body.classList.toggle('hide-tasks');
+        const nowHidden = document.body.classList.contains('hide-tasks');
+        localStorage.setItem('ugeplanen_show_tasks', (!nowHidden).toString());
+        updateToggleButtons();
+      });
+    }
+
+    if (btnMeals) {
+      btnMeals.addEventListener('click', () => {
+        const isTasksHidden = document.body.classList.contains('hide-tasks');
+        const isMealsHidden = document.body.classList.contains('hide-meals');
+
+        // If meals are currently visible, and tasks are hidden, un-hide tasks so at least one section is visible
+        if (!isMealsHidden && isTasksHidden) {
+          document.body.classList.remove('hide-tasks');
+          localStorage.setItem('ugeplanen_show_tasks', 'true');
+        }
+
+        document.body.classList.toggle('hide-meals');
+        const nowHidden = document.body.classList.contains('hide-meals');
+        localStorage.setItem('ugeplanen_show_meals', (!nowHidden).toString());
+        updateToggleButtons();
+      });
+    }
+  };
+
+  initViewToggles();
+
+  // --- MEAL PLANNER INTERACTIONS ---
+  // 1. Toggle Quick Add Meal Form
+  document.querySelectorAll('.btn-toggle-quick-meal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.day-card');
+      if (!card) return;
+      const form = card.querySelector('.quick-add-meal-form');
+      if (!form) return;
+      const isHidden = form.style.display === 'none' || form.style.display === '';
+      if (isHidden) {
+        document.querySelectorAll('.quick-add-meal-form').forEach(f => f.style.display = 'none');
+        form.style.display = 'flex';
+        const titleInput = form.querySelector('.quick-meal-title');
+        if (titleInput) titleInput.focus();
+      } else {
+        form.style.display = 'none';
+      }
+    });
+  });
+
+  document.querySelectorAll('.btn-cancel-quick-meal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.closest('.quick-add-meal-form');
+      if (form) form.style.display = 'none';
+    });
+  });
+
+  // 2. Submit Quick Add Meal
+  document.querySelectorAll('.btn-submit-quick-meal').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const form = btn.closest('.quick-add-meal-form');
+      if (!form) return;
+      const titleInput = form.querySelector('.quick-meal-title');
+      const groceriesInput = form.querySelector('.quick-meal-groceries');
+      const title = titleInput ? titleInput.value.trim() : '';
+      const groceriesText = groceriesInput ? groceriesInput.value.trim() : '';
+
+      if (!title) {
+        if (titleInput) titleInput.focus();
+        return;
+      }
+
+      const weekTarget = btn.dataset.weekTarget || 'current';
+      const day = btn.dataset.day;
+
+      try {
+        const response = await fetch('/api/meals/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            week_target: weekTarget,
+            day: day,
+            title: title,
+            groceries_text: groceriesText
+          })
+        });
+
+        if (!response.ok) throw new Error('Failed to add meal');
+
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        showToast('Error: ' + err.message);
+      }
+    });
+  });
+
+  // 3. Delete Meal
+  document.querySelectorAll('.btn-delete-meal').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const weekTarget = btn.dataset.weekTarget || 'current';
+      const day = btn.dataset.day;
+      const mealId = btn.dataset.mealId;
+
+      try {
+        const response = await fetch('/api/meals/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            week_target: weekTarget,
+            day: day,
+            meal_id: mealId
+          })
+        });
+
+        if (!response.ok) throw new Error('Failed to delete meal');
+
+        const item = btn.closest('.meal-item');
+        if (item) {
+          item.remove();
+        } else {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error: ' + err.message);
+      }
+    });
+  });
+
+  // 4. Grocery List Modal
+  const groceryModal = document.getElementById('grocery-modal');
+  const groceryItemsContainer = document.getElementById('grocery-items-container');
+  const groceryModalTitle = document.getElementById('grocery-modal-title');
+  const groceryModalClose = document.getElementById('grocery-modal-close');
+  const btnClearCheckedGroceries = document.getElementById('btn-clear-checked-groceries');
+  const btnCopyGroceries = document.getElementById('btn-copy-groceries');
+
+  let currentGroceryWeek = 'current';
+  let currentGroceryData = [];
+
+  const getStorageKey = (week) => 'checked_groceries_' + week;
+
+  const escapeHtml = (str) => {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+
+  const renderGroceries = () => {
+    if (!groceryItemsContainer) return;
+    if (currentGroceryData.length === 0) {
+      groceryItemsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem 1rem;">Ingen indkøb nødvendige endnu. Tilføj ingredienser til dine måltider.</div>';
+      return;
+    }
+
+    let checkedSet = new Set();
+    try {
+      const saved = localStorage.getItem(getStorageKey(currentGroceryWeek));
+      if (saved) checkedSet = new Set(JSON.parse(saved));
+    } catch (e) {}
+
+    groceryItemsContainer.innerHTML = '';
+    currentGroceryData.forEach(item => {
+      const isChecked = checkedSet.has(item.name.toLowerCase());
+      const row = document.createElement('div');
+      row.className = 'grocery-item' + (isChecked ? ' is-done' : '');
+      row.dataset.name = item.name.toLowerCase();
+
+      const mealsCountLabel = item.meal_count === 1 ? 'dækker 1 måltid' : `dækker ${item.meal_count} måltider`;
+      const mealsList = item.meal_titles && item.meal_titles.length ? item.meal_titles.join(', ') : '';
+
+      row.innerHTML = `
+        <label class="checkbox-container" style="flex-shrink: 0; padding-left: 1.5rem;">
+          <input type="checkbox" class="grocery-item-checkbox" ${isChecked ? 'checked' : ''}>
+          <span class="checkmark"></span>
+        </label>
+        <div style="flex-grow: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+            <span class="grocery-name">${escapeHtml(item.name)}</span>
+            <span class="grocery-badge">${mealsCountLabel}</span>
+          </div>
+          ${mealsList ? `<div class="grocery-meals">${escapeHtml(mealsList)}</div>` : ''}
+        </div>
+      `;
+
+      const cb = row.querySelector('.grocery-item-checkbox');
+      cb.addEventListener('change', () => {
+        let currentChecked = new Set();
+        try {
+          const s = localStorage.getItem(getStorageKey(currentGroceryWeek));
+          if (s) currentChecked = new Set(JSON.parse(s));
+        } catch (e) {}
+
+        const norm = item.name.toLowerCase();
+        if (cb.checked) {
+          currentChecked.add(norm);
+          row.classList.add('is-done');
+        } else {
+          currentChecked.delete(norm);
+          row.classList.remove('is-done');
+        }
+        localStorage.setItem(getStorageKey(currentGroceryWeek), JSON.stringify(Array.from(currentChecked)));
+      });
+
+      groceryItemsContainer.appendChild(row);
+    });
+  };
+
+  const loadGroceries = async (weekTarget, title) => {
+    currentGroceryWeek = weekTarget;
+    if (groceryModalTitle && title) {
+      groceryModalTitle.textContent = '🛒 ' + title;
+    }
+    if (groceryItemsContainer) {
+      groceryItemsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Henter indkøbsliste...</div>';
+    }
+    if (groceryModal) {
+      groceryModal.style.display = 'flex';
+    }
+
+    try {
+      const res = await fetch(`/api/groceries?week=${weekTarget}`);
+      if (!res.ok) throw new Error('Failed to load groceries');
+      const data = await res.json();
+      currentGroceryData = data.groceries || [];
+      renderGroceries();
+    } catch (err) {
+      console.error(err);
+      if (groceryItemsContainer) {
+        groceryItemsContainer.innerHTML = '<div style="color: var(--danger); text-align: center; padding: 1rem;">' + err.message + '</div>';
+      }
+    }
+  };
+
+  document.querySelectorAll('.btn-open-groceries').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const weekTarget = btn.dataset.weekTarget || 'current';
+      const weekTitle = btn.dataset.weekTitle || 'Indkøbsliste';
+      loadGroceries(weekTarget, weekTitle);
+    });
+  });
+
+  if (groceryModalClose) {
+    groceryModalClose.addEventListener('click', () => {
+      if (groceryModal) groceryModal.style.display = 'none';
+    });
+  }
+
+  if (groceryModal) {
+    groceryModal.addEventListener('click', (e) => {
+      if (e.target === groceryModal) {
+        groceryModal.style.display = 'none';
+      }
+    });
+  }
+
+  if (btnClearCheckedGroceries) {
+    btnClearCheckedGroceries.addEventListener('click', () => {
+      localStorage.removeItem(getStorageKey(currentGroceryWeek));
+      renderGroceries();
+    });
+  }
+
+  if (btnCopyGroceries) {
+    btnCopyGroceries.addEventListener('click', async () => {
+      if (!currentGroceryData || currentGroceryData.length === 0) return;
+      let checkedSet = new Set();
+      try {
+        const saved = localStorage.getItem(getStorageKey(currentGroceryWeek));
+        if (saved) checkedSet = new Set(JSON.parse(saved));
+      } catch (e) {}
+
+      let lines = [];
+      const title = groceryModalTitle ? groceryModalTitle.textContent.replace('🛒', '').trim() : 'Indkøbsliste';
+      lines.push(`${title}:`);
+
+      currentGroceryData.forEach(item => {
+        const isChecked = checkedSet.has(item.name.toLowerCase());
+        const mark = isChecked ? '[x]' : '[ ]';
+        const mealsDesc = item.meal_titles && item.meal_titles.length ? ` (${item.meal_count} måltider: ${item.meal_titles.join(', ')})` : ` (${item.meal_count} måltider)`;
+        lines.push(`${mark} ${item.name}${mealsDesc}`);
+      });
+
+      const text = lines.join('\n');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast(btnCopyGroceries.dataset.successMsg || 'Indkøbsliste kopieret!');
+      } catch (err) {
+        console.error(err);
+        showToast('Kunne ikke kopiere liste: ' + err.message);
+      }
+    });
+  }
 });

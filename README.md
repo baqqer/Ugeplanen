@@ -8,6 +8,7 @@ Ugeplanen is a lightweight, self-contained weekly calendar and task planner desi
 
 * **Master Template Blueprint**: Define a standard weekly schedule of recurring tasks (such as chores, lessons, or meals). The active week can be manually or automatically reset back to this blueprint at any time.
 * **Ad-hoc Tasks**: Add quick, one-off tasks directly to any day on the dashboard. These tasks can be completed or deleted on the fly and are cleared out when a new week is started.
+* **Meal Planner & Deduplicated Grocery List**: Plan meals for both the current week and next week with custom ingredients. Automatically compile, deduplicate, and sort a complete grocery list showing how many meals each ingredient covers, complete with checklist scratch-offs and one-click clipboard copying.
 * **On-the-fly Localization**: Full English and Danish translations are supported. Language preference is saved in the user settings and dynamically updates the interface on reload.
 * **Mobile Touch Support**: Customizable options for Touch-Friendly Mode (enlarging buttons and inputs, removing task radio/checkbox buttons for seamless full-row tapping) and Row-Tap Toggle (allowing you to check off tasks by tapping anywhere on their card row).
 * **Automatic Mobile Layout**: Automatically detects when accessed by mobile devices (via user-agent and touch metrics) and stacks dashboard action buttons vertically for perfect full-width visibility and finger-friendly tap targets.
@@ -31,6 +32,7 @@ ugeplanen/
 ├── plan.json            # JSON database (automatically generated on first run)
 ├── templates/
 │   ├── dashboard.html   # Main calendar dashboard grid
+│   ├── meals.html       # Weekly meal planner & grocery list modal
 │   ├── settings.html    # Configuration editor (layout, language, touch modes)
 │   └── manage_templates.html # Master week template schedule editor
 └── static/

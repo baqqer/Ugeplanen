@@ -24,44 +24,68 @@
       </div>
     </header>
 
+    <!-- View Filter Toggles: Show/Hide Tasks and Meals -->
+    <div class="dashboard-view-toggles">
+      <span class="view-toggles-label">{{ index .Trans "view_filter_label" }}:</span>
+      <button type="button" id="toggle-view-tasks" class="view-toggle-btn active toggle-tasks" title="{{ index .Trans "task_plan_title" }}">
+        <span class="toggle-dot"></span>
+        <span>📋 {{ index .Trans "task_plan_title" }}</span>
+      </button>
+      <button type="button" id="toggle-view-meals" class="view-toggle-btn active toggle-meals" title="{{ index .Trans "meal_plan_title" }}">
+        <span class="toggle-dot"></span>
+        <span>🍽️ {{ index .Trans "meal_plan_title" }}</span>
+      </button>
+    </div>
+
+    {{ $currentDayIdx := getDayIndex $.CurrentDay }}
     {{ range .Weeks }}
-    <div class="week-section" style="margin-bottom: 3rem;">
-      <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: baseline; justify-content: space-between;">
-        <span>
-          {{ .Title }}
+    {{ $weekTarget := .TargetKey }}
+    {{ $isCurrentWeek := .IsCurrent }}
+    {{ $offsetDays := .OffsetDays }}
+    {{ $weekMeals := .Meals }}
+
+    <div class="week-section" style="margin-bottom: 3.5rem;">
+      <div class="week-section-header" style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">
+        <h2 style="font-size: 1.5rem; color: var(--text-primary); margin: 0;">
+          <span>{{ .Title }}</span>
           {{ if $.State.Settings.ShowWeekNumber }}
             <span class="week-number-sub">- {{ index $.Trans "week" }} {{ .WeekNum }}</span>
           {{ end }}
-        </span>
-      </h2>
+        </h2>
+        <button class="btn btn-meal-primary btn-sm btn-open-groceries" data-week-target="{{ $weekTarget }}" data-week-title="{{ .Title }}{{ if $.State.Settings.ShowWeekNumber }} - {{ index $.Trans "week" }} {{ .WeekNum }}{{ end }}">
+          🛒 {{ index $.Trans "grocery_list" }}
+        </button>
+      </div>
+
+      <!-- Unified 7-Day Grid (Tasks on top, Meals in red drawer below) -->
       <main class="week-grid desktop-{{ $.State.Settings.DesktopLayout }} mobile-{{ $.State.Settings.MobileLayout }}">
-        {{ $currentDayIdx := getDayIndex $.CurrentDay }}
-        {{ $weekTarget := .TargetKey }}
-        {{ $isCurrentWeek := .IsCurrent }}
-        {{ $offsetDays := .OffsetDays }}
         {{ range .Plan.Days }}
         {{ $dayKey := .Key }}
         {{ $dayIdx := getDayIndex $dayKey }}
         {{ if or $.State.Settings.ShowPassedDays (not $isCurrentWeek) (ge $dayIdx $currentDayIdx) }}
-        <div class="day-card {{ if and $.State.Settings.HighlightToday $isCurrentWeek (eq $dayKey $.CurrentDay) }}is-today{{ end }}" id="day-{{ $weekTarget }}-{{ $dayKey }}" style="display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="display: flex; flex-direction: column; flex-grow: 1;">
-            <div class="day-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
-                {{ getDayName .Day $.Language }}
-                {{ if $.State.Settings.ShowDates }}
-                  <span class="day-date-label">({{ getDayDate $dayKey $.Language $offsetDays }})</span>
-                {{ end }}
-                {{ if and $.State.Settings.HighlightToday $isCurrentWeek (eq $dayKey $.CurrentDay) }}
-                  <span class="today-tag">{{ index $.Trans "today" }}</span>
-                {{ end }}
-              </span>
-              <div style="display: flex; align-items: center; gap: 0.375rem;">
-                <span class="badge">{{ len .Day.Tasks }}</span>
-                <button class="btn-toggle-quick-add" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" title="{{ index $.Trans "add_task" }}">+</button>
-              </div>
+        <div class="day-card unified-day-card {{ if and $.State.Settings.HighlightToday $isCurrentWeek (eq $dayKey $.CurrentDay) }}is-today{{ end }}" id="day-{{ $weekTarget }}-{{ $dayKey }}">
+          
+          <!-- Unified Day Card Header -->
+          <div class="day-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
+              {{ getDayName .Day $.Language }}
+              {{ if $.State.Settings.ShowDates }}
+                <span class="day-date-label">({{ getDayDate $dayKey $.Language $offsetDays }})</span>
+              {{ end }}
+              {{ if and $.State.Settings.HighlightToday $isCurrentWeek (eq $dayKey $.CurrentDay) }}
+                <span class="today-tag">{{ index $.Trans "today" }}</span>
+              {{ end }}
+            </span>
+            <div class="day-header-actions" style="display: flex; align-items: center; gap: 0.375rem;">
+              <span class="badge badge-task-count" title="{{ index $.Trans "task_plan_title" }}">{{ len .Day.Tasks }}</span>
+              <button class="btn-toggle-quick-add" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" title="{{ index $.Trans "add_task" }}">+</button>
             </div>
+          </div>
+
+          <!-- 1. Upper Section: Tasks (Blue Theme) -->
+          <div class="card-tasks-section">
             <ul class="task-list">
-              <!-- 1. Render Template/Default Tasks -->
+              <!-- Render Template/Default Tasks -->
               {{ $hasTemplateTasks := false }}
               {{ range .Day.Tasks }}
                 {{ if not .AdHoc }}
@@ -86,7 +110,7 @@
                 {{ end }}
               {{ end }}
 
-              <!-- 2. Render Ad-Hoc Divider and Tasks -->
+              <!-- Render Ad-Hoc Divider and Tasks -->
               {{ $hasAdHocTasks := false }}
               {{ range .Day.Tasks }}
                 {{ if .AdHoc }}
@@ -122,25 +146,88 @@
                 {{ end }}
               {{ end }}
 
-              <!-- 3. If there are no tasks at all -->
+              <!-- If there are no tasks at all -->
               {{ if and (not $hasTemplateTasks) (not $hasAdHocTasks) }}
                 <li class="no-tasks">{{ index $.Trans "no_tasks" }}</li>
               {{ end }}
             </ul>
+
+            <!-- Dashboard Quick Add Task Form (Hidden by default, toggled via '+' button) -->
+            <div class="quick-add-task-form" style="display: none; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid var(--border); background-color: var(--bg-card); flex-shrink: 0; box-sizing: border-box; width: 100%;">
+              <input type="text" class="quick-add-time" placeholder="00:00" style="width: 55px; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); text-align: center; font-family: inherit; box-sizing: border-box;">
+              <input type="text" class="quick-add-title" placeholder="{{ index $.Trans "add_task" }}" style="flex-grow: 1; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box;" required>
+              <button class="btn btn-primary btn-sm btn-quick-add" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; min-height: 25px; flex-shrink: 0;">+</button>
+            </div>
           </div>
-          
-          <!-- Dashboard Quick Add Form (Hidden by default, toggled via header '+' button) -->
-          <div class="quick-add-task-form" style="display: none; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid var(--border); background-color: var(--bg-card); border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); flex-shrink: 0; box-sizing: border-box; width: 100%;">
-            <input type="text" class="quick-add-time" placeholder="00:00" style="width: 55px; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); text-align: center; font-family: inherit; box-sizing: border-box;">
-            <input type="text" class="quick-add-title" placeholder="{{ index $.Trans "add_task" }}" style="flex-grow: 1; min-width: 0; padding: 0.25rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box;" required>
-            <button class="btn btn-primary btn-sm btn-quick-add" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; min-height: 25px; flex-shrink: 0;">+</button>
+
+          <!-- 2. Lower Drawer: Meals (Red Theme) -->
+          <div class="card-meals-section">
+            <div class="meal-drawer-header">
+              <span class="meal-drawer-title">🍽️ {{ index $.Trans "meal_plan_title" }}</span>
+              <button class="btn-toggle-quick-meal" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" title="{{ index $.Trans "add_meal" }}">+</button>
+            </div>
+
+            <div class="meal-drawer-content">
+              {{ $dayMeals := getDayMeals $weekMeals $dayKey }}
+              {{ if $dayMeals }}
+                <ul class="meal-list">
+                  {{ range $dayMeals }}
+                    <li class="meal-item">
+                      <div class="meal-item-header">
+                        <span class="meal-item-title">{{ .Title }}</span>
+                        <button class="btn-delete-meal" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" data-meal-id="{{ .ID }}" title="{{ index $.Trans "delete" }}">x</button>
+                      </div>
+                      {{ if .Groceries }}
+                        <div class="meal-groceries">
+                          {{ range .Groceries }}
+                            <span class="grocery-chip">{{ . }}</span>
+                          {{ end }}
+                        </div>
+                      {{ end }}
+                    </li>
+                  {{ end }}
+                </ul>
+              {{ else }}
+                <div class="no-meals-placeholder">{{ index $.Trans "no_meals_planned" }}</div>
+              {{ end }}
+            </div>
+
+            <!-- Meal Quick Add Form (hidden by default) -->
+            <div class="quick-add-meal-form" style="display: none; padding: 0.65rem 0.75rem; border-top: 1px solid rgba(225, 29, 72, 0.15); background-color: var(--bg-card); flex-direction: column; gap: 0.45rem; box-sizing: border-box; width: 100%;">
+              <input type="text" class="quick-meal-title" placeholder="{{ index $.Trans "meal_title" }}" style="width: 100%; padding: 0.4rem 0.55rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box;" required>
+              <textarea class="quick-meal-groceries" placeholder="{{ index $.Trans "groceries_placeholder" }}" rows="2" style="width: 100%; padding: 0.4rem 0.55rem; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: inherit; box-sizing: border-box; resize: vertical;"></textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.2rem;">
+                <button type="button" class="btn btn-secondary btn-sm btn-cancel-quick-meal" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">{{ index $.Trans "cancel" }}</button>
+                <button type="button" class="btn btn-meal-primary btn-sm btn-submit-quick-meal" data-week-target="{{ $weekTarget }}" data-day="{{ $dayKey }}" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">{{ index $.Trans "add_meal" }}</button>
+              </div>
+            </div>
           </div>
+
         </div>
         {{ end }}
         {{ end }}
       </main>
     </div>
     {{ end }}
+  </div>
+
+  <!-- Grocery List Modal -->
+  <div id="grocery-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box;">
+    <div class="modal-box" style="background: var(--bg-card); border-radius: var(--radius); max-width: 550px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); border: 1px solid var(--border); overflow: hidden;">
+      <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="grocery-modal-title" style="margin: 0; font-size: 1.25rem; color: var(--text-primary);">🛒 {{ index $.Trans "compiled_grocery_list" }}</h3>
+        <button id="grocery-modal-close" style="background: none; border: none; font-size: 1.75rem; color: var(--text-secondary); cursor: pointer; line-height: 1; padding: 0 0.25rem;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex-grow: 1;">
+        <div id="grocery-items-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- Loaded dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <button id="btn-clear-checked-groceries" class="btn btn-secondary btn-sm">{{ index $.Trans "clear_checked" }}</button>
+        <button id="btn-copy-groceries" class="btn btn-primary btn-sm" data-success-msg="{{ index $.Trans "grocery_list_copied" }}">📋 {{ index $.Trans "copy_grocery_list" }}</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast for system messages -->

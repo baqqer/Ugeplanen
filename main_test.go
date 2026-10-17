@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -81,6 +82,12 @@ func TestTemplates(t *testing.T) {
 		},
 		"getDayDate": func(key string, lang string, offsetDays int) string {
 			return "Jun 29"
+		},
+		"getDayMeals": func(wm WeekMeals, dayKey string) []Meal {
+			return wm.GetDay(dayKey).Meals
+		},
+		"getDayMealsSummary": func(targetKey string, dayKey string) string {
+			return ""
 		},
 	}
 
@@ -216,6 +223,12 @@ func TestTouchFriendlyModeRadioRemoval(t *testing.T) {
 		"getDayDate": func(key string, lang string, offsetDays int) string {
 			return "Jun 29"
 		},
+		"getDayMeals": func(wm WeekMeals, dayKey string) []Meal {
+			return wm.GetDay(dayKey).Meals
+		},
+		"getDayMealsSummary": func(targetKey string, dayKey string) string {
+			return ""
+		},
 	}
 
 	data := TemplateData{
@@ -288,6 +301,12 @@ func TestWeekNumberPlacement(t *testing.T) {
 		},
 		"getDayDate": func(key string, lang string, offsetDays int) string {
 			return "Jun 29"
+		},
+		"getDayMeals": func(wm WeekMeals, dayKey string) []Meal {
+			return wm.GetDay(dayKey).Meals
+		},
+		"getDayMealsSummary": func(targetKey string, dayKey string) string {
+			return ""
 		},
 	}
 
@@ -685,5 +704,321 @@ func TestSettingsMigration(t *testing.T) {
 	}
 	if currentState.Settings.MobileLayout != "vertical" {
 		t.Errorf("Expected mobile layout to migrate/fallback to 'vertical', got '%s'", currentState.Settings.MobileLayout)
+	}
+}
+
+func TestCompileGroceriesDeduplication(t *testing.T) {
+	wm := initEmptyWeekMeals()
+	wm.Monday.Meals = []Meal{
+		{
+			ID:        "m1",
+			Title:     "Lasagne",
+			Groceries: []string{"Hakket oksekød", "Lasagneplader", "Mælk", "Revet ost"},
+		},
+	}
+	wm.Tuesday.Meals = []Meal{
+		{
+			ID:        "m2",
+			Title:     "Pandekager",
+			Groceries: []string{"mælk", "Æg", "Mel", "Smør"},
+		},
+	}
+	wm.Wednesday.Meals = []Meal{
+		{
+			ID:        "m3",
+			Title:     "Cheeseburger",
+			Groceries: []string{"Hakket Oksekød", "revet ost", "Burgerboller"},
+		},
+	}
+
+	compiled := compileGroceries(wm)
+
+	// Build map for easier assertions
+	m := make(map[string]CompiledGroceryItem)
+	for _, item := range compiled {
+		m[strings.ToLower(item.Name)] = item
+	}
+
+	// 1. Verify "Mælk" covers 2 meals (Lasagne, Pandekager)
+	maelk, exists := m["mælk"]
+	if !exists {
+		t.Fatalf("Expected 'Mælk' in compiled grocery list")
+	}
+	if maelk.MealCount != 2 {
+		t.Errorf("Expected Mælk to cover 2 meals, got %d", maelk.MealCount)
+	}
+	if len(maelk.MealTitles) != 2 || maelk.MealTitles[0] != "Lasagne" || maelk.MealTitles[1] != "Pandekager" {
+		t.Errorf("Expected Mælk meal titles [Lasagne, Pandekager], got %v", maelk.MealTitles)
+	}
+
+	// 2. Verify "Hakket oksekød" covers 2 meals (Lasagne, Cheeseburger)
+	meat, exists := m["hakket oksekød"]
+	if !exists {
+		t.Fatalf("Expected 'Hakket oksekød' in compiled grocery list")
+	}
+	if meat.MealCount != 2 {
+		t.Errorf("Expected Hakket oksekød to cover 2 meals, got %d", meat.MealCount)
+	}
+
+	// 3. Verify "Revet ost" covers 2 meals
+	ost, exists := m["revet ost"]
+	if !exists {
+		t.Fatalf("Expected 'revet ost' in compiled grocery list")
+	}
+	if ost.MealCount != 2 {
+		t.Errorf("Expected Revet ost to cover 2 meals, got %d", ost.MealCount)
+	}
+
+	// 4. Verify single meal coverage (e.g. "Æg")
+	aeg, exists := m["æg"]
+	if !exists {
+		t.Fatalf("Expected 'Æg' in compiled grocery list")
+	}
+	if aeg.MealCount != 1 {
+		t.Errorf("Expected Æg to cover 1 meal, got %d", aeg.MealCount)
+	}
+
+	// 5. Verify alphabetical sorting
+	for i := 0; i < len(compiled)-1; i++ {
+		if strings.ToLower(compiled[i].Name) > strings.ToLower(compiled[i+1].Name) {
+			t.Errorf("Expected compiled groceries to be sorted alphabetically, but %s > %s", compiled[i].Name, compiled[i+1].Name)
+		}
+	}
+}
+
+func TestMealAPI(t *testing.T) {
+	// Initialize test state
+	stateMu.Lock()
+	currentState = AppState{
+		Settings:      Settings{Language: "da"},
+		MealsPlan:     initEmptyWeekMeals(),
+		NextMealsPlan: initEmptyWeekMeals(),
+	}
+	stateMu.Unlock()
+
+	// 1. Add meal
+	addPayload := `{"week_target":"current","day":"monday","title":"Spaghetti","groceries_text":"Pasta, Tomatsovs"}`
+	reqAdd := httptest.NewRequest(http.MethodPost, "/api/meals/add", strings.NewReader(addPayload))
+	reqAdd.Header.Set("Content-Type", "application/json")
+	wAdd := httptest.NewRecorder()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/meals/add", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			WeekTarget    string `json:"week_target"`
+			Day           string `json:"day"`
+			Title         string `json:"title"`
+			GroceriesText string `json:"groceries_text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		stateMu.Lock()
+		newMeal := Meal{
+			ID:        "test_meal_1",
+			Title:     req.Title,
+			Groceries: parseGroceries(req.GroceriesText),
+		}
+		dayMeals := currentState.MealsPlan.GetDay(req.Day)
+		dayMeals.Meals = append(dayMeals.Meals, newMeal)
+		currentState.MealsPlan.SetDay(req.Day, dayMeals)
+		stateMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.ServeHTTP(wAdd, reqAdd)
+
+	if wAdd.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 from /api/meals/add, got %d", wAdd.Code)
+	}
+
+	stateMu.RLock()
+	compiled := compileGroceries(currentState.MealsPlan)
+	stateMu.RUnlock()
+
+	if len(compiled) != 2 {
+		t.Fatalf("Expected 2 compiled grocery items, got %d", len(compiled))
+	}
+
+	// 2. Delete meal
+	delPayload := `{"week_target":"current","day":"monday","meal_id":"test_meal_1"}`
+	reqDel := httptest.NewRequest(http.MethodPost, "/api/meals/delete", strings.NewReader(delPayload))
+	reqDel.Header.Set("Content-Type", "application/json")
+	wDel := httptest.NewRecorder()
+
+	mux.HandleFunc("/api/meals/delete", func(w http.ResponseWriter, r *http.Request) {
+		stateMu.Lock()
+		dayMeals := currentState.MealsPlan.GetDay("monday")
+		dayMeals.Meals = []Meal{}
+		currentState.MealsPlan.SetDay("monday", dayMeals)
+		stateMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.ServeHTTP(wDel, reqDel)
+
+	if wDel.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 from /api/meals/delete, got %d", wDel.Code)
+	}
+
+	stateMu.RLock()
+	compiledAfter := compileGroceries(currentState.MealsPlan)
+	stateMu.RUnlock()
+
+	if len(compiledAfter) != 0 {
+		t.Errorf("Expected 0 groceries after deletion, got %d", len(compiledAfter))
+	}
+}
+
+func TestMealWeekTransition(t *testing.T) {
+	_, currentWeek := time.Now().ISOWeek()
+	prevWeek := currentWeek - 1
+	if prevWeek <= 0 {
+		prevWeek = 52
+	}
+
+	stateMu.Lock()
+	currentState = AppState{
+		Settings: Settings{
+			Language:      "da",
+			AutoResetWeek: false,
+		},
+		LastWeekNum:   prevWeek,
+		MealsPlan:     initEmptyWeekMeals(),
+		NextMealsPlan: initEmptyWeekMeals(),
+	}
+	currentState.NextMealsPlan.Tuesday.Meals = []Meal{
+		{ID: "m_next", Title: "Tirsdags Taco", Groceries: []string{"Tacoskaller", "Hakket oksekød"}},
+	}
+	stateMu.Unlock()
+
+	checkWeekTransition()
+
+	stateMu.RLock()
+	defer stateMu.RUnlock()
+
+	if len(currentState.MealsPlan.Tuesday.Meals) != 1 {
+		t.Fatalf("Expected NextMealsPlan Tuesday meal to shift to MealsPlan Tuesday")
+	}
+	if currentState.MealsPlan.Tuesday.Meals[0].Title != "Tirsdags Taco" {
+		t.Errorf("Expected shifted meal title to be 'Tirsdags Taco', got '%s'", currentState.MealsPlan.Tuesday.Meals[0].Title)
+	}
+	if len(currentState.NextMealsPlan.Tuesday.Meals) != 0 {
+		t.Errorf("Expected NextMealsPlan Tuesday meals to be reset, got %d", len(currentState.NextMealsPlan.Tuesday.Meals))
+	}
+}
+
+func TestUnifiedDashboardMealPlannerIntegration(t *testing.T) {
+	funcMap := template.FuncMap{
+		"getDayName": func(day Day, lang string) string {
+			return day.GetName(lang)
+		},
+		"getDayIndex": func(key string) int {
+			return 0
+		},
+		"getDayDate": func(key string, lang string, offsetDays int) string {
+			return "Jun 29"
+		},
+		"getDayMeals": func(wm WeekMeals, dayKey string) []Meal {
+			return wm.GetDay(dayKey).Meals
+		},
+		"getDayMealsSummary": func(targetKey string, dayKey string) string {
+			return "Lasagne"
+		},
+	}
+
+	tmplDash, err := template.New("dashboard.html").Funcs(funcMap).ParseFiles("templates/dashboard.html")
+	if err != nil {
+		t.Fatalf("Failed to parse dashboard.html: %v", err)
+	}
+
+	meals := initEmptyWeekMeals()
+	meals.Monday.Meals = []Meal{
+		{ID: "m1", Title: "Lasagne", Groceries: []string{"Hakket oksekød", "Mælk"}},
+	}
+
+	tasks := WeekPlan{
+		Monday: Day{DayNameDa: "Mandag", DayNameEn: "Monday", Tasks: []Task{{ID: "t1", Title: "Opvask"}}},
+	}
+
+	data := TemplateData{
+		Language: "da",
+		Trans:    translations["da"],
+		State: AppState{
+			Settings: Settings{Language: "da"},
+		},
+		Weeks: []WeekRenderData{
+			{
+				TargetKey:  "current",
+				Title:      "Denne uge",
+				Plan:       tasks,
+				Meals:      meals,
+				IsCurrent:  true,
+				WeekNum:    40,
+				OffsetDays: 0,
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := tmplDash.Execute(&buf, data); err != nil {
+		t.Fatalf("Failed to execute dashboard.html: %v", err)
+	}
+
+	htmlStr := buf.String()
+
+	// 1. Check for view toggle buttons at top
+	if !strings.Contains(htmlStr, "dashboard-view-toggles") {
+		t.Error("Expected dashboard.html to contain view toggles container")
+	}
+	if !strings.Contains(htmlStr, "toggle-view-tasks") || !strings.Contains(htmlStr, "toggle-view-meals") {
+		t.Error("Expected dashboard.html to contain toggle-view-tasks and toggle-view-meals buttons")
+	}
+
+	// 2. Check for integrated sections in the unified card
+	if !strings.Contains(htmlStr, "unified-day-card") {
+		t.Error("Expected dashboard.html to contain unified-day-card")
+	}
+	if !strings.Contains(htmlStr, "card-tasks-section") {
+		t.Error("Expected dashboard.html to contain card-tasks-section")
+	}
+	if !strings.Contains(htmlStr, "card-meals-section") {
+		t.Error("Expected dashboard.html to contain card-meals-section")
+	}
+
+	// 3. Check for red meal drawer and meal content
+	if !strings.Contains(htmlStr, "meal-drawer-content") {
+		t.Error("Expected dashboard.html to contain meal-drawer-content elements")
+	}
+	if !strings.Contains(htmlStr, "Lasagne") {
+		t.Error("Expected dashboard.html to render meal title 'Lasagne'")
+	}
+	if !strings.Contains(htmlStr, "grocery-modal") {
+		t.Error("Expected dashboard.html to contain grocery modal")
+	}
+
+	// 4. Verify static CSS defines red theme and hide toggles
+	cssBytes, err := os.ReadFile("static/css/style.css")
+	if err != nil {
+		t.Fatalf("Failed to read static/css/style.css: %v", err)
+	}
+	cssStr := string(cssBytes)
+	if !strings.Contains(cssStr, "--meal-primary:") {
+		t.Error("Expected static/css/style.css to define --meal-primary")
+	}
+	if !strings.Contains(cssStr, ".unified-day-card") {
+		t.Error("Expected static/css/style.css to style .unified-day-card")
+	}
+	if !strings.Contains(cssStr, "body.hide-tasks") || !strings.Contains(cssStr, "body.hide-meals") {
+		t.Error("Expected static/css/style.css to define body.hide-tasks and body.hide-meals")
+	}
+
+	// 5. Verify static JS handles view toggles
+	jsBytes, err := os.ReadFile("static/js/app.js")
+	if err != nil {
+		t.Fatalf("Failed to read static/js/app.js: %v", err)
+	}
+	jsStr := string(jsBytes)
+	if !strings.Contains(jsStr, "initViewToggles") || !strings.Contains(jsStr, "toggle-view-tasks") {
+		t.Error("Expected static/js/app.js to support dashboard view toggles")
 	}
 }

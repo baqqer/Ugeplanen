@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,13 +84,116 @@ type Settings struct {
 	AutoResetWeek     bool   `json:"auto_reset_week"`     // true or false (automatically reset week plan when new week starts)
 }
 
+// Meal represents a single planned meal and its groceries.
+type Meal struct {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Groceries []string `json:"groceries"`
+}
+
+// DayMeals represents meals for a single day.
+type DayMeals struct {
+	DayNameDa string `json:"day_name_da"`
+	DayNameEn string `json:"day_name_en"`
+	Meals     []Meal `json:"meals"`
+}
+
+func (d DayMeals) GetName(lang string) string {
+	if lang == "en" {
+		return d.DayNameEn
+	}
+	return d.DayNameDa
+}
+
+// WeekMeals represents meals across all days of the week.
+type WeekMeals struct {
+	Monday    DayMeals `json:"monday"`
+	Tuesday   DayMeals `json:"tuesday"`
+	Wednesday DayMeals `json:"wednesday"`
+	Thursday  DayMeals `json:"thursday"`
+	Friday    DayMeals `json:"friday"`
+	Saturday  DayMeals `json:"saturday"`
+	Sunday    DayMeals `json:"sunday"`
+}
+
+type DayMealsWithKey struct {
+	Key string
+	Day DayMeals
+}
+
+func (wm WeekMeals) Days() []DayMealsWithKey {
+	return []DayMealsWithKey{
+		{Key: "monday", Day: wm.Monday},
+		{Key: "tuesday", Day: wm.Tuesday},
+		{Key: "wednesday", Day: wm.Wednesday},
+		{Key: "thursday", Day: wm.Thursday},
+		{Key: "friday", Day: wm.Friday},
+		{Key: "saturday", Day: wm.Saturday},
+		{Key: "sunday", Day: wm.Sunday},
+	}
+}
+
+func (wm WeekMeals) GetDay(key string) DayMeals {
+	switch key {
+	case "monday":
+		return wm.Monday
+	case "tuesday":
+		return wm.Tuesday
+	case "wednesday":
+		return wm.Wednesday
+	case "thursday":
+		return wm.Thursday
+	case "friday":
+		return wm.Friday
+	case "saturday":
+		return wm.Saturday
+	case "sunday":
+		return wm.Sunday
+	default:
+		return DayMeals{}
+	}
+}
+
+func (wm *WeekMeals) SetDay(key string, day DayMeals) {
+	switch key {
+	case "monday":
+		wm.Monday = day
+	case "tuesday":
+		wm.Tuesday = day
+	case "wednesday":
+		wm.Wednesday = day
+	case "thursday":
+		wm.Thursday = day
+	case "friday":
+		wm.Friday = day
+	case "saturday":
+		wm.Saturday = day
+	case "sunday":
+		wm.Sunday = day
+	}
+}
+
+func initEmptyWeekMeals() WeekMeals {
+	return WeekMeals{
+		Monday:    DayMeals{DayNameDa: "Mandag", DayNameEn: "Monday", Meals: []Meal{}},
+		Tuesday:   DayMeals{DayNameDa: "Tirsdag", DayNameEn: "Tuesday", Meals: []Meal{}},
+		Wednesday: DayMeals{DayNameDa: "Onsdag", DayNameEn: "Wednesday", Meals: []Meal{}},
+		Thursday:  DayMeals{DayNameDa: "Torsdag", DayNameEn: "Thursday", Meals: []Meal{}},
+		Friday:    DayMeals{DayNameDa: "Fredag", DayNameEn: "Friday", Meals: []Meal{}},
+		Saturday:  DayMeals{DayNameDa: "Lørdag", DayNameEn: "Saturday", Meals: []Meal{}},
+		Sunday:    DayMeals{DayNameDa: "Søndag", DayNameEn: "Sunday", Meals: []Meal{}},
+	}
+}
+
 // AppState represents the complete plan.json data structure.
 type AppState struct {
-	Settings     Settings `json:"settings"`
-	WeekPlan     WeekPlan `json:"week_plan"`
-	NextWeekPlan WeekPlan `json:"next_week_plan"`
-	TemplatePlan WeekPlan `json:"template_plan"`
-	LastWeekNum  int      `json:"last_week_num"` // Stores the last ISO week number rendered/processed
+	Settings      Settings  `json:"settings"`
+	WeekPlan      WeekPlan  `json:"week_plan"`
+	NextWeekPlan  WeekPlan  `json:"next_week_plan"`
+	TemplatePlan  WeekPlan  `json:"template_plan"`
+	MealsPlan     WeekMeals `json:"meals_plan"`
+	NextMealsPlan WeekMeals `json:"next_meals_plan"`
+	LastWeekNum   int       `json:"last_week_num"` // Stores the last ISO week number rendered/processed
 }
 
 var (
@@ -167,6 +272,25 @@ var translations = map[string]map[string]string{
 		"adhoc":                      "Ad-hoc",
 		"this_week":                  "Denne uge",
 		"next_week":                  "Næste uge",
+		"meal_planner":               "Madplan",
+		"meals":                      "Måltider",
+		"add_meal":                   "Tilføj måltid",
+		"meal_title":                 "Måltid (fx Lasagne)",
+		"groceries_label":            "Indkøb / Ingredienser",
+		"groceries_placeholder":      "Fx: Hakket oksekød, Mælk, Ost (adskilt med komma eller linjeskift)",
+		"grocery_list":               "Indkøbsliste",
+		"compiled_grocery_list":      "Samlet indkøbsliste",
+		"grocery_coverage_single":    "dækker 1 måltid",
+		"grocery_coverage_multiple":  "dækker %d måltider",
+		"no_meals_planned":           "Ingen måltider planlagt endnu.",
+		"no_groceries_needed":        "Ingen indkøb nødvendige endnu. Tilføj ingredienser til dine måltider for at se indkøbslisten her.",
+		"copy_grocery_list":          "Kopier indkøbsliste",
+		"grocery_list_copied":        "Indkøbsliste kopieret til udklipsholder!",
+		"dinner":                     "Aftensmad",
+		"clear_checked":              "Ryd afkrydsede",
+		"task_plan_title":            "Ugeplan",
+		"meal_plan_title":            "Madplan",
+		"view_filter_label":          "Vis",
 	},
 	"en": {
 		"title":                      "Ugeplanen",
@@ -230,6 +354,25 @@ var translations = map[string]map[string]string{
 		"adhoc":                      "Ad-hoc",
 		"this_week":                  "This week",
 		"next_week":                  "Next week",
+		"meal_planner":               "Meal Planner",
+		"meals":                      "Meals",
+		"add_meal":                   "Add Meal",
+		"meal_title":                 "Meal (e.g. Lasagna)",
+		"groceries_label":            "Groceries / Ingredients",
+		"groceries_placeholder":      "E.g.: Ground beef, Milk, Cheese (separated by commas or newlines)",
+		"grocery_list":               "Grocery List",
+		"compiled_grocery_list":      "Compiled Grocery List",
+		"grocery_coverage_single":    "covers 1 meal",
+		"grocery_coverage_multiple":  "covers %d meals",
+		"no_meals_planned":           "No meals planned yet.",
+		"no_groceries_needed":        "No groceries needed yet. Add ingredients to your meals to compile a shopping list.",
+		"copy_grocery_list":          "Copy Grocery List",
+		"grocery_list_copied":        "Grocery list copied to clipboard!",
+		"dinner":                     "Dinner",
+		"clear_checked":              "Clear Checked",
+		"task_plan_title":            "Week Plan",
+		"meal_plan_title":            "Meal Plan",
+		"view_filter_label":          "View",
 	},
 }
 
@@ -283,7 +426,9 @@ func loadPlan() error {
 					Saturday:  Day{DayNameDa: "Lørdag", DayNameEn: "Saturday", Tasks: []Task{}},
 					Sunday:    Day{DayNameDa: "Søndag", DayNameEn: "Sunday", Tasks: []Task{}},
 				},
-				LastWeekNum: currentWeek,
+				MealsPlan:     initEmptyWeekMeals(),
+				NextMealsPlan: initEmptyWeekMeals(),
+				LastWeekNum:   currentWeek,
 			}
 			stateMu.Unlock()
 			errSave := savePlanAtomic()
@@ -352,6 +497,14 @@ func loadPlan() error {
 	if nextWeekUninitialized {
 		// Clone standard templates into next week
 		currentState.NextWeekPlan = cloneWeekPlanFromTemplate(currentState.TemplatePlan)
+	}
+
+	// 4. Sanitize and initialize MealsPlan and NextMealsPlan if missing
+	if currentState.MealsPlan.Monday.DayNameDa == "" {
+		currentState.MealsPlan = initEmptyWeekMeals()
+	}
+	if currentState.NextMealsPlan.Monday.DayNameDa == "" {
+		currentState.NextMealsPlan = initEmptyWeekMeals()
 	}
 
 	return nil
@@ -523,10 +676,14 @@ func checkWeekTransition() {
 				currentState.WeekPlan = currentState.NextWeekPlan
 				resetNextWeekPlanToTemplate()
 			}
+			currentState.MealsPlan = currentState.NextMealsPlan
+			currentState.NextMealsPlan = initEmptyWeekMeals()
 		} else {
 			log.Printf("Multi-week transition detected (%d -> %d). Resetting both weeks to template...", last, currentWeek)
 			resetWeekPlanToTemplate()
 			resetNextWeekPlanToTemplate()
+			currentState.MealsPlan = initEmptyWeekMeals()
+			currentState.NextMealsPlan = initEmptyWeekMeals()
 		}
 
 		stateMu.Unlock()
@@ -540,9 +697,82 @@ type WeekRenderData struct {
 	TargetKey  string // "current" or "next"
 	Title      string // "Denne uge" / "This week" or "Næste uge" / "Next week"
 	Plan       WeekPlan
+	Meals      WeekMeals
 	IsCurrent  bool
 	WeekNum    int
 	OffsetDays int
+}
+
+// CompiledGroceryItem represents a deduplicated grocery item and how many meals it covers.
+type CompiledGroceryItem struct {
+	Name       string   `json:"name"`
+	MealCount  int      `json:"meal_count"`
+	MealTitles []string `json:"meal_titles"`
+}
+
+// compileGroceries deduplicates ingredients across all meals in a week and tracks meal counts.
+func compileGroceries(wm WeekMeals) []CompiledGroceryItem {
+	itemsMap := make(map[string]*CompiledGroceryItem)
+
+	days := wm.Days()
+	for _, d := range days {
+		for _, m := range d.Day.Meals {
+			mealTitle := strings.TrimSpace(m.Title)
+			if mealTitle == "" {
+				mealTitle = "Måltid"
+			}
+			seenInMeal := make(map[string]bool)
+
+			for _, g := range m.Groceries {
+				raw := strings.TrimSpace(g)
+				if raw == "" {
+					continue
+				}
+				norm := strings.ToLower(raw)
+				if seenInMeal[norm] {
+					continue
+				}
+				seenInMeal[norm] = true
+
+				if item, exists := itemsMap[norm]; exists {
+					item.MealCount++
+					item.MealTitles = append(item.MealTitles, mealTitle)
+				} else {
+					item = &CompiledGroceryItem{
+						Name:       raw,
+						MealCount:  1,
+						MealTitles: []string{mealTitle},
+					}
+					itemsMap[norm] = item
+				}
+			}
+		}
+	}
+
+	result := make([]CompiledGroceryItem, 0, len(itemsMap))
+	for _, item := range itemsMap {
+		result = append(result, *item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+	})
+
+	return result
+}
+
+// parseGroceries parses a comma- or newline-delimited string into a slice of cleaned ingredients.
+func parseGroceries(input string) []string {
+	var res []string
+	lines := strings.FieldsFunc(input, func(r rune) bool {
+		return r == '\n' || r == ','
+	})
+	for _, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed != "" {
+			res = append(res, trimmed)
+		}
+	}
+	return res
 }
 
 // TemplateData passed to html templates
@@ -595,6 +825,7 @@ func getTemplateData() TemplateData {
 			TargetKey:  "current",
 			Title:      translations[lang]["this_week"],
 			Plan:       currentState.WeekPlan,
+			Meals:      currentState.MealsPlan,
 			IsCurrent:  true,
 			WeekNum:    weekNum,
 			OffsetDays: 0,
@@ -603,6 +834,7 @@ func getTemplateData() TemplateData {
 			TargetKey:  "next",
 			Title:      translations[lang]["next_week"],
 			Plan:       currentState.NextWeekPlan,
+			Meals:      currentState.NextMealsPlan,
 			IsCurrent:  false,
 			WeekNum:    nextWeekNum,
 			OffsetDays: 7,
@@ -748,6 +980,30 @@ func main() {
 				return ""
 			}
 			return getWeekDateString(idx, lang, offsetDays)
+		},
+		"getDayMeals": func(wm WeekMeals, dayKey string) []Meal {
+			return wm.GetDay(dayKey).Meals
+		},
+		"getDayMealsSummary": func(targetKey string, dayKey string) string {
+			stateMu.RLock()
+			defer stateMu.RUnlock()
+			var wm WeekMeals
+			if targetKey == "next" {
+				wm = currentState.NextMealsPlan
+			} else {
+				wm = currentState.MealsPlan
+			}
+			d := wm.GetDay(dayKey)
+			if len(d.Meals) == 0 {
+				return ""
+			}
+			var titles []string
+			for _, m := range d.Meals {
+				if strings.TrimSpace(m.Title) != "" {
+					titles = append(titles, m.Title)
+				}
+			}
+			return strings.Join(titles, ", ")
 		},
 	}
 
@@ -1058,6 +1314,150 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	})
+
+	// API: Add meal to day
+	http.HandleFunc("/api/meals/add", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			WeekTarget    string   `json:"week_target"` // "current" or "next"
+			Day           string   `json:"day"`
+			Title         string   `json:"title"`
+			Groceries     []string `json:"groceries"`
+			GroceriesText string   `json:"groceries_text"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		title := strings.TrimSpace(req.Title)
+		if title == "" {
+			http.Error(w, "Title is required", http.StatusBadRequest)
+			return
+		}
+
+		groceries := req.Groceries
+		if len(groceries) == 0 && req.GroceriesText != "" {
+			groceries = parseGroceries(req.GroceriesText)
+		} else {
+			var cleaned []string
+			for _, g := range groceries {
+				for _, sub := range parseGroceries(g) {
+					cleaned = append(cleaned, sub)
+				}
+			}
+			groceries = cleaned
+		}
+
+		stateMu.Lock()
+		var targetMeals *WeekMeals
+		if req.WeekTarget == "next" {
+			targetMeals = &currentState.NextMealsPlan
+		} else {
+			targetMeals = &currentState.MealsPlan
+		}
+
+		newMeal := Meal{
+			ID:        fmt.Sprintf("meal_%s_%d", req.Day, time.Now().UnixNano()),
+			Title:     title,
+			Groceries: groceries,
+		}
+
+		dayMeals := targetMeals.GetDay(req.Day)
+		dayMeals.Meals = append(dayMeals.Meals, newMeal)
+		targetMeals.SetDay(req.Day, dayMeals)
+		stateMu.Unlock()
+
+		if err := savePlanAtomic(); err != nil {
+			log.Printf("Error saving meal: %v", err)
+			http.Error(w, "Failed to save to database", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "success",
+			"meal":   newMeal,
+		})
+	})
+
+	// API: Delete meal from day
+	http.HandleFunc("/api/meals/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			WeekTarget string `json:"week_target"` // "current" or "next"
+			Day        string `json:"day"`
+			MealID     string `json:"meal_id"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		stateMu.Lock()
+		var targetMeals *WeekMeals
+		if req.WeekTarget == "next" {
+			targetMeals = &currentState.NextMealsPlan
+		} else {
+			targetMeals = &currentState.MealsPlan
+		}
+
+		dayMeals := targetMeals.GetDay(req.Day)
+		var updatedMeals []Meal
+		for _, m := range dayMeals.Meals {
+			if m.ID != req.MealID {
+				updatedMeals = append(updatedMeals, m)
+			}
+		}
+		dayMeals.Meals = updatedMeals
+		targetMeals.SetDay(req.Day, dayMeals)
+		stateMu.Unlock()
+
+		if err := savePlanAtomic(); err != nil {
+			log.Printf("Error saving meal deletion: %v", err)
+			http.Error(w, "Failed to save to database", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	})
+
+	// API: Get compiled deduplicated grocery list
+	http.HandleFunc("/api/groceries", func(w http.ResponseWriter, r *http.Request) {
+		weekTarget := r.URL.Query().Get("week")
+		if weekTarget != "next" {
+			weekTarget = "current"
+		}
+
+		stateMu.RLock()
+		var targetMeals WeekMeals
+		if weekTarget == "next" {
+			targetMeals = currentState.NextMealsPlan
+		} else {
+			targetMeals = currentState.MealsPlan
+		}
+		stateMu.RUnlock()
+
+		items := compileGroceries(targetMeals)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":    "success",
+			"week":      weekTarget,
+			"groceries": items,
+		})
 	})
 
 	// GET: Reset week plan back to standard template plan

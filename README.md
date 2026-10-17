@@ -1,5 +1,8 @@
 # Ugeplanen
 
+[![CI](https://github.com/baqqer/Ugeplanen/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/baqqer/Ugeplanen/actions/workflows/ci.yml)
+[![Release](https://github.com/baqqer/Ugeplanen/actions/workflows/release.yml/badge.svg)](https://github.com/baqqer/Ugeplanen/actions/workflows/release.yml)
+
 > **Notice:** This application is a "vibecoded" project, optimized for fast iterations, local deployment simplicity, and clean standard library implementations without excessive abstractions or enterprise architecture.
 
 Ugeplanen is a lightweight, self-contained weekly calendar and task planner designed for local networks, family dashboards, or home servers. It is built as a single-binary Go application with no external runtime dependencies. All configuration, settings, and task data are stored locally in a single, portable JSON file.

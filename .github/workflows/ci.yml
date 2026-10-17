@@ -12,10 +12,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
       - run: go vet ./...
       - run: go test -v -race ./...
 
@@ -31,10 +32,11 @@ jobs:
           - { goos: windows, goarch: amd64 }
           - { goos: darwin,  goarch: arm64 }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
       - name: Build
         env:
           CGO_ENABLED: "0"
@@ -46,19 +48,20 @@ jobs:
           mkdir -p dist/ugeplanen
           go build -trimpath -ldflags="-s -w" -o dist/ugeplanen/ugeplanen$ext .
           cp -r templates static dist/ugeplanen/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ugeplanen-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && format('v{0}', matrix.goarm) || '' }}
           path: dist/ugeplanen
           retention-days: 7
           if-no-files-found: error
+
   docker:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: false
